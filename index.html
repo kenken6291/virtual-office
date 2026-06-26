@@ -974,29 +974,6 @@ let ICE_CFG = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:global.stun.twilio.com:3478' },
-    // Metered.ca TURN — フロントエンド直接設定（GAS権限問題を回避）
-    {
-      urls: 'turn:virtual-office-kenken6291.metered.live:80',
-      username: 'metered',
-      credential: 'UAJ5tZCkoZaN2HFJBZqxtJTpDrG9Oa_7Y_oibo2DepPomGOk'
-    },
-    {
-      urls: 'turn:virtual-office-kenken6291.metered.live:443',
-      username: 'metered',
-      credential: 'UAJ5tZCkoZaN2HFJBZqxtJTpDrG9Oa_7Y_oibo2DepPomGOk'
-    },
-    {
-      urls: 'turn:virtual-office-kenken6291.metered.live:443?transport=tcp',
-      username: 'metered',
-      credential: 'UAJ5tZCkoZaN2HFJBZqxtJTpDrG9Oa_7Y_oibo2DepPomGOk'
-    },
-    {
-      urls: 'turns:virtual-office-kenken6291.metered.live:443',
-      username: 'metered',
-      credential: 'UAJ5tZCkoZaN2HFJBZqxtJTpDrG9Oa_7Y_oibo2DepPomGOk'
-    },
   ],
   iceCandidatePoolSize: 10,
 };
@@ -1005,11 +982,14 @@ async function fetchIceServers() {
   try {
     const res = await apiGet({ action: 'getIceServers' });
     if (res.ok && res.iceServers) {
+      // GASのサーバーとフロントエンドのTURNをマージ（重複排除）
+      const gasUrls = new Set(res.iceServers.map(s => JSON.stringify(s.urls)));
+      const localOnly = ICE_CFG.iceServers.filter(s => !gasUrls.has(JSON.stringify(s.urls)));
       ICE_CFG = {
-        iceServers: res.iceServers,
+        iceServers: [...res.iceServers, ...localOnly],
         iceCandidatePoolSize: 10,
       };
-      console.log('[ICE] servers loaded:', res.iceServers.length, 'entries');
+      console.log('[ICE] servers loaded:', ICE_CFG.iceServers.length, 'entries');
     }
   } catch(e) {
     console.warn('[ICE] failed to fetch servers, using defaults:', e);
