@@ -964,18 +964,44 @@ async function startCall(targetId) {
 
 function buildPC(targetId) {
   const pc = new RTCPeerConnection(ICE_CFG);
-  pc.onicecandidate = ({candidate}) => {
-    if (candidate) apiPost({ action:'sendSignal', to:targetId, type:'ice', payload:candidate }).catch(()=>{});
+
+  // ICE candidate
+  pc.onicecandidate = ({ candidate }) => {
+    if (candidate) {
+      apiPost({ action: 'sendSignal', to: targetId, type: 'ice', payload: candidate }).catch(() => {});
+    }
   };
-  pc.ontrack = ({streams}) => {
-    remoteStreams[targetId] = streams[0];
-    addRemoteVideo(targetId, streams[0]);
+
+  pc.onicecandidateerror = (e) => {
+    console.warn('ICE error', e.errorCode, e.errorText);
   };
+
+  // トラック受信 — streams[0] が空でも track から直接 MediaStream を作る
+  const remoteStream = new MediaStream();
+  remoteStreams[targetId] = remoteStream;
+
+  pc.ontrack = (event) => {
+    console.log('[ontrack]', targetId, event.track.kind, event.track.readyState);
+    remoteStream.addTrack(event.track);
+    // ビデオ/オーディオUIを更新
+    addRemoteVideo(targetId, remoteStream);
+  };
+
   pc.onconnectionstatechange = () => {
     const s = pc.connectionState;
-    if (s==='connected') toast(`✅ ${otherUsers[targetId]?.name??'?'} と通話中`);
-    if (['disconnected','failed','closed'].includes(s)) endCall(targetId);
+    console.log('[connectionState]', targetId, s);
+    if (s === 'connected') {
+      toast(`✅ ${otherUsers[targetId]?.name ?? '?'} と通話中`);
+      // 接続確立後に audio を再度アタッチ（Android対策）
+      attachStreamToAudio(targetId, remoteStream);
+    }
+    if (['disconnected', 'failed', 'closed'].includes(s)) endCall(targetId);
   };
+
+  pc.oniceconnectionstatechange = () => {
+    console.log('[iceState]', targetId, pc.iceConnectionState);
+  };
+
   return pc;
 }
 
@@ -1070,33 +1096,52 @@ function attachStreamToAudio(uid, stream) {
 }
 
 function addRemoteVideo(uid, stream) {
-  // 音声を <audio> 要素で再生（Android スピーカー対策）
+  const name = otherUsers[uid]?.name ?? uid;
+
+  // ── 音声: <audio> 要素で再生（Androidスピーカー対策）──
   attachStreamToAudio(uid, stream);
 
-  // デスクトップ: サイドバー（映像のみ、音声はaudio要素側）
-  if (!document.getElementById(`vid-${uid}`)) {
-    const item = document.createElement('div');
-    item.className='vid-item'; item.id=`vid-${uid}`;
-    const vid=document.createElement('video');
-    vid.autoplay=true; vid.playsInline=true; vid.muted=true; // 音声はaudio要素で出力
-    vid.srcObject=stream;
-    const lbl=document.createElement('div');
-    lbl.className='vid-label'; lbl.textContent=otherUsers[uid]?.name??uid;
-    item.appendChild(vid); item.appendChild(lbl);
-    document.getElementById('video-grid').appendChild(item);
+  // ── デスクトップ: サイドバー ──
+  let desktopItem = document.getElementById(`vid-${uid}`);
+  if (!desktopItem) {
+    desktopItem = document.createElement('div');
+    desktopItem.className = 'vid-item';
+    desktopItem.id = `vid-${uid}`;
+    const lbl = document.createElement('div');
+    lbl.className = 'vid-label';
+    lbl.textContent = name;
+    const vid = document.createElement('video');
+    vid.className = 'remote-vid';
+    vid.autoplay = true;
+    vid.playsInline = true;
+    vid.muted = true; // 音声は <audio> 要素側
+    desktopItem.appendChild(vid);
+    desktopItem.appendChild(lbl);
+    document.getElementById('video-grid').appendChild(desktopItem);
   }
-  // モバイル: オーバーレイ（映像のみ）
-  if (!document.getElementById(`mob-vid-${uid}`)) {
-    const item=document.createElement('div');
-    item.className='mob-vid-item'; item.id=`mob-vid-${uid}`;
-    const vid=document.createElement('video');
-    vid.autoplay=true; vid.playsInline=true; vid.muted=true; // 音声はaudio要素で出力
-    vid.srcObject=stream;
-    const lbl=document.createElement('div');
-    lbl.className='mob-vid-label'; lbl.textContent=otherUsers[uid]?.name??uid;
-    item.appendChild(vid); item.appendChild(lbl);
-    document.getElementById('mobile-videos').appendChild(item);
+  // stream が更新されたら srcObject を張り直す
+  const dVid = desktopItem.querySelector('video');
+  if (dVid && dVid.srcObject !== stream) dVid.srcObject = stream;
+
+  // ── モバイル: オーバーレイ ──
+  let mobItem = document.getElementById(`mob-vid-${uid}`);
+  if (!mobItem) {
+    mobItem = document.createElement('div');
+    mobItem.className = 'mob-vid-item';
+    mobItem.id = `mob-vid-${uid}`;
+    const lbl = document.createElement('div');
+    lbl.className = 'mob-vid-label';
+    lbl.textContent = name;
+    const vid = document.createElement('video');
+    vid.autoplay = true;
+    vid.playsInline = true;
+    vid.muted = true;
+    mobItem.appendChild(vid);
+    mobItem.appendChild(lbl);
+    document.getElementById('mobile-videos').appendChild(mobItem);
   }
+  const mVid = mobItem.querySelector('video');
+  if (mVid && mVid.srcObject !== stream) mVid.srcObject = stream;
 }
 
 function removeRemoteVideo(uid) {
