@@ -676,6 +676,13 @@ function resizeCanvas() {
 }
 window.addEventListener('resize', () => { resizeCanvas(); });
 
+// Android自動再生対策: キャンバスタップ時に全audio要素を再生
+canvas.addEventListener('touchstart', () => {
+  document.querySelectorAll('audio[id^="audio-"]').forEach(a => {
+    if (a.paused) a.play().catch(() => {});
+  });
+}, { passive: true });
+
 // ============================================================
 // 描画
 // ============================================================
@@ -1028,24 +1035,63 @@ function endCall(uid) {
 // ============================================================
 // ビデオUI — デスクトップ & モバイル両対応
 // ============================================================
+// Android で WebRTC 音声がイヤースピーカーに出る問題を回避
+// → <audio> 要素を使って再生 + 明示的な play() 呼び出し
+function attachStreamToAudio(uid, stream) {
+  let audio = document.getElementById(`audio-${uid}`);
+  if (!audio) {
+    audio = document.createElement('audio');
+    audio.id          = `audio-${uid}`;
+    audio.autoplay    = true;
+    audio.playsInline = true;
+    audio.style.display = 'none';
+    document.body.appendChild(audio);
+  }
+  audio.srcObject = stream;
+  // setSinkId: スピーカー出力を明示（対応ブラウザのみ）
+  if (typeof audio.setSinkId === 'function') {
+    audio.setSinkId('default').catch(() => {});
+  }
+  // Androidの自動再生ポリシー対策: 明示的に play() を呼ぶ
+  const tryPlay = () => {
+    audio.play().catch(e => {
+      console.warn('audio play failed, will retry on user gesture:', e);
+    });
+  };
+  tryPlay();
+  // ユーザー操作があったタイミングでも再試行
+  const onGesture = () => {
+    tryPlay();
+    document.removeEventListener('touchstart', onGesture);
+    document.removeEventListener('click',      onGesture);
+  };
+  document.addEventListener('touchstart', onGesture, { once: true });
+  document.addEventListener('click',      onGesture, { once: true });
+}
+
 function addRemoteVideo(uid, stream) {
-  // デスクトップ: サイドバー
+  // 音声を <audio> 要素で再生（Android スピーカー対策）
+  attachStreamToAudio(uid, stream);
+
+  // デスクトップ: サイドバー（映像のみ、音声はaudio要素側）
   if (!document.getElementById(`vid-${uid}`)) {
     const item = document.createElement('div');
     item.className='vid-item'; item.id=`vid-${uid}`;
     const vid=document.createElement('video');
-    vid.autoplay=true; vid.playsInline=true; vid.srcObject=stream;
+    vid.autoplay=true; vid.playsInline=true; vid.muted=true; // 音声はaudio要素で出力
+    vid.srcObject=stream;
     const lbl=document.createElement('div');
     lbl.className='vid-label'; lbl.textContent=otherUsers[uid]?.name??uid;
     item.appendChild(vid); item.appendChild(lbl);
     document.getElementById('video-grid').appendChild(item);
   }
-  // モバイル: オーバーレイ
+  // モバイル: オーバーレイ（映像のみ）
   if (!document.getElementById(`mob-vid-${uid}`)) {
     const item=document.createElement('div');
     item.className='mob-vid-item'; item.id=`mob-vid-${uid}`;
     const vid=document.createElement('video');
-    vid.autoplay=true; vid.playsInline=true; vid.srcObject=stream;
+    vid.autoplay=true; vid.playsInline=true; vid.muted=true; // 音声はaudio要素で出力
+    vid.srcObject=stream;
     const lbl=document.createElement('div');
     lbl.className='mob-vid-label'; lbl.textContent=otherUsers[uid]?.name??uid;
     item.appendChild(vid); item.appendChild(lbl);
@@ -1056,6 +1102,9 @@ function addRemoteVideo(uid, stream) {
 function removeRemoteVideo(uid) {
   document.getElementById(`vid-${uid}`)?.remove();
   document.getElementById(`mob-vid-${uid}`)?.remove();
+  // audio 要素も削除
+  const audio = document.getElementById(`audio-${uid}`);
+  if (audio) { audio.srcObject = null; audio.remove(); }
 }
 
 // ============================================================
