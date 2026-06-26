@@ -434,6 +434,41 @@ body {
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border); }
 
+/* ─── メディアトグルボタン ───────────────────────────── */
+.media-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--border);
+  border: 1px solid #3a3a70;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 9px;
+  letter-spacing: 1px;
+  padding: 3px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.media-btn:hover { background: #3a3a70; }
+.media-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.media-btn.active:hover { background: #7070ff; }
+.media-btn.danger {
+  background: #3a1020;
+  border-color: var(--red);
+  color: var(--red);
+}
+.media-btn.danger:hover { background: #5a1830; }
+/* スマホ: ボタンを少し大きく */
+@media (max-width: 639px) {
+  .media-btn { font-size: 10px; padding: 4px 10px; }
+}
+
 /* ════════════════════════════════════════
    RESPONSIVE BREAKPOINT
 ════════════════════════════════════════ */
@@ -472,6 +507,8 @@ body {
 <div id="header">
   <h1>★ Virtual <em>Office</em></h1>
   <div class="hbadge">SECURE</div>
+  <button class="media-btn" id="btn-cam"  title="カメラ ON/OFF">📷 CAM</button>
+  <button class="media-btn" id="btn-mic"  title="マイク ON/OFF">🎤 MIC</button>
   <div id="online-badge">● 0 online</div>
 </div>
 
@@ -867,7 +904,7 @@ async function pollSignals() {
 function dist2D(a,b) { return Math.sqrt((a.x-b.x)**2+(a.y-b.y)**2); }
 
 async function checkProximity() {
-  if (!localStream) return;
+  if (!myToken) return; // 未ログイン時はスキップ（localStream は null でも続行）
 
   const startPromises = [];
 
@@ -911,7 +948,7 @@ async function startCall(targetId) {
   activeCalls.add(targetId);
   const pc = buildPC(targetId);
   peers[targetId] = pc;
-  localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
+  if (localStream) localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
   await apiPost({ action:'sendSignal', to:targetId, type:'offer', payload:offer });
@@ -939,15 +976,13 @@ async function handleSignal({ from, type, payload }) {
   if (type === 'offer') {
     // すでに接続中 or 処理中はスキップ
     if (peers[from] || pendingCalls.has(from)) return;
-    // カメラなしでも音声なしで受け入れる
-    if (!localStream) return;
-
     pendingCalls.add(from);
     try {
       activeCalls.add(from);
       const pc = buildPC(from);
       peers[from] = pc;
-      localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+      // localStream が null でも接続自体は確立（相手の声は受信できる）
+      if (localStream) localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
       await pc.setRemoteDescription(new RTCSessionDescription(payload));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
@@ -1065,23 +1100,108 @@ function toast(msg) {
 // カメラ
 // ============================================================
 async function initCamera() {
+  // ① カメラ+マイク
   try {
-    // スマホでは前面カメラを優先
     const constraints = IS_MOBILE()
-      ? { video:{ facingMode:'user' }, audio:true }
-      : { video:true, audio:true };
+      ? { video: { facingMode: 'user' }, audio: true }
+      : { video: true, audio: true };
     localStream = await navigator.mediaDevices.getUserMedia(constraints);
-    // デスクトップ
     document.getElementById('self-video').srcObject = localStream;
-    // モバイル
     document.getElementById('mob-self-video').srcObject = localStream;
     document.getElementById('st-cam').textContent = 'ON';
+    updateMediaButtons();
     toast('📷 カメラ・マイク準備完了');
+    return;
+  } catch(e) { /* カメラ拒否 → 音声のみを試みる */ }
+
+  // ② マイクのみ（カメラ拒否時のフォールバック）
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+    // 自分映像は黒のまま（srcObjectはセットしない）
+    document.getElementById('st-cam').textContent = '🎤音声のみ';
+    updateMediaButtons();
+    toast('🎤 マイクのみで参加します（カメラOFF）');
+    return;
+  } catch(e) { /* マイクも拒否 → サイレントストリームで通話自体は成立させる */ }
+
+  // ③ すべて拒否 → 無音・無映像の空ストリームを作成
+  //    これにより通話接続自体は行われ、相手の声は聞こえる
+  try {
+    const ctx = new AudioContext();
+    const dst = ctx.createMediaStreamDestination();
+    localStream = dst.stream;           // 無音トラックのみ
+    document.getElementById('st-cam').textContent = 'OFF（受信のみ）';
+    updateMediaButtons();
+    toast('⚠️ カメラ・マイクなし — 相手の声は聞こえます');
   } catch(e) {
+    // AudioContext も使えない環境（まれ）
     document.getElementById('st-cam').textContent = 'OFF';
-    toast('⚠️ カメラなしで参加します');
+    toast('⚠️ カメラ・マイクなしで参加します');
+    // localStream = null のまま → 通話機能は無効
   }
 }
+
+// ============================================================
+// カメラ / マイク トグル
+// ============================================================
+let camEnabled = false;
+let micEnabled = false;
+
+function updateMediaButtons() {
+  const btnCam = document.getElementById('btn-cam');
+  const btnMic = document.getElementById('btn-mic');
+  if (!btnCam || !btnMic) return;
+
+  // カメラボタン
+  if (!localStream) {
+    btnCam.className = 'media-btn danger';
+    btnCam.textContent = '📷 CAM OFF';
+  } else {
+    const vTrack = localStream.getVideoTracks()[0];
+    if (vTrack) {
+      camEnabled = vTrack.enabled;
+      btnCam.className = 'media-btn' + (camEnabled ? ' active' : ' danger');
+      btnCam.textContent = camEnabled ? '📷 CAM ON' : '📷 CAM OFF';
+    } else {
+      btnCam.className = 'media-btn danger';
+      btnCam.textContent = '📷 なし';
+    }
+  }
+
+  // マイクボタン
+  if (!localStream) {
+    btnMic.className = 'media-btn danger';
+    btnMic.textContent = '🎤 MIC OFF';
+  } else {
+    const aTrack = localStream.getAudioTracks()[0];
+    if (aTrack) {
+      micEnabled = aTrack.enabled;
+      btnMic.className = 'media-btn' + (micEnabled ? ' active' : ' danger');
+      btnMic.textContent = micEnabled ? '🎤 MIC ON' : '🎤 MIC OFF';
+    } else {
+      btnMic.className = 'media-btn danger';
+      btnMic.textContent = '🎤 なし';
+    }
+  }
+}
+
+document.getElementById('btn-cam').addEventListener('click', () => {
+  if (!localStream) { toast('⚠️ カメラが利用できません'); return; }
+  const track = localStream.getVideoTracks()[0];
+  if (!track) { toast('⚠️ カメラトラックがありません'); return; }
+  track.enabled = !track.enabled;
+  updateMediaButtons();
+  toast(track.enabled ? '📷 カメラON' : '📷 カメラOFF');
+});
+
+document.getElementById('btn-mic').addEventListener('click', () => {
+  if (!localStream) { toast('⚠️ マイクが利用できません'); return; }
+  const track = localStream.getAudioTracks()[0];
+  if (!track) { toast('⚠️ マイクトラックがありません'); return; }
+  track.enabled = !track.enabled;
+  updateMediaButtons();
+  toast(track.enabled ? '🎤 マイクON' : '🎤 マイクOFF（ミュート）');
+});
 
 // ============================================================
 // ログインUI
