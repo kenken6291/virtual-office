@@ -928,7 +928,10 @@ async function checkProximity() {
     const inRange = d <= CALL_RANGE;
 
     if (inRange && !activeCalls.has(uid) && !pendingCalls.has(uid)) {
-      if (myId < uid) {
+      // 文字コード合計でCaller/Answerer を決定（辞書順より衝突しにくい）
+      const score = s => s.split('').reduce((a,c) => a + c.charCodeAt(0), 0);
+      const iAmCaller = score(myId) !== score(uid) ? score(myId) < score(uid) : myId < uid;
+      if (iAmCaller) {
         pendingCalls.add(uid);
         startPromises.push(
           startCall(uid).finally(() => pendingCalls.delete(uid))
