@@ -1013,6 +1013,11 @@ function buildPC(targetId) {
   pc.ontrack = (event) => {
     console.log('[ontrack]', targetId, event.track.kind, event.track.readyState);
     remoteStream.addTrack(event.track);
+    // audio track 受信時は即座に再生開始（connectionState===connected を待たない）
+    if (event.track.kind === 'audio') {
+      console.log('[ontrack] audio track received — attaching immediately');
+      attachStreamToAudio(targetId, remoteStream);
+    }
     // ビデオ/オーディオUIを更新
     addRemoteVideo(targetId, remoteStream);
   };
@@ -1023,6 +1028,10 @@ function buildPC(targetId) {
     if (s === 'connected') {
       toast(`✅ ${otherUsers[targetId]?.name ?? '?'} と通話中`);
       attachStreamToAudio(targetId, remoteStream);
+    }
+    if (s === 'connecting' || s === 'connected') {
+      // connecting段階でも音声を再生開始しておく
+      if (remoteStreams[targetId]) attachStreamToAudio(targetId, remoteStreams[targetId]);
     }
     if (s === 'failed') {
       console.warn('[WebRTC] connection failed, trying ICE restart...');
@@ -1085,8 +1094,17 @@ async function handleSignal({ from, type, payload }) {
 
   } else if (type === 'answer') {
     const pc = peers[from];
-    if (pc && pc.signalingState !== 'stable') {
-      try { await pc.setRemoteDescription(new RTCSessionDescription(payload)); } catch(e) {}
+    if (!pc) { console.warn('[answer] no peer for', from); return; }
+    console.log('[answer] signalingState:', pc.signalingState);
+    if (pc.signalingState === 'have-local-offer') {
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(payload));
+        console.log('[answer] setRemoteDescription OK, connectionState:', pc.connectionState);
+      } catch(e) {
+        console.error('[answer] setRemoteDescription FAILED:', e);
+      }
+    } else {
+      console.warn('[answer] unexpected signalingState:', pc.signalingState, '— skipping');
     }
   } else if (type === 'ice') {
     const pc = peers[from];
