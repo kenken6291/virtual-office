@@ -954,40 +954,30 @@ async function checkProximity() {
 // WebRTC
 // ============================================================
 // ─── ICE設定 ───────────────────────────────────────────────
-// 複数のSTUN/TURNサーバーを併用してNAT越えの成功率を上げる
-const ICE_CFG = {
+// GASのPropertiesServiceからTURN認証情報を取得する
+// （config.jsにTURN credentialを書かないためセキュア）
+let ICE_CFG = {
   iceServers: [
-    // Google STUN
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' },
-    // Twilio STUN
-    { urls: 'stun:global.stun.twilio.com:3478' },
-    // Cloudflare STUN
-    { urls: 'stun:stun.cloudflare.com:3478' },
-    // Metered.ca 無料TURN（Open Relay Projectの後継）
-    {
-      urls: [
-        'turn:standard.relay.metered.ca:80',
-        'turn:standard.relay.metered.ca:80?transport=tcp',
-        'turn:standard.relay.metered.ca:443',
-        'turn:standard.relay.metered.ca:443?transport=tcp',
-      ],
-      username:   'e8dd9c4a3e62d5a45b8e0db3',
-      credential: 'uTwMkYGqkFhFQkWh',
-    },
-    // Numb TURN (無料)
-    {
-      urls: 'turn:numb.viagenie.ca',
-      username:   'webrtc@live.com',
-      credential: 'muazkh',
-    },
   ],
   iceCandidatePoolSize: 10,
-  iceTransportPolicy: 'all',
 };
+
+async function fetchIceServers() {
+  try {
+    const res = await apiGet({ action: 'getIceServers' });
+    if (res.ok && res.iceServers) {
+      ICE_CFG = {
+        iceServers: res.iceServers,
+        iceCandidatePoolSize: 10,
+      };
+      console.log('[ICE] servers loaded:', res.iceServers.length, 'entries');
+    }
+  } catch(e) {
+    console.warn('[ICE] failed to fetch servers, using defaults:', e);
+  }
+}
 
 async function startCall(targetId) {
   if (peers[targetId]) return;
@@ -1424,6 +1414,7 @@ document.getElementById('enter-btn').addEventListener('click', async () => {
     document.getElementById('st-pos').textContent=`${myX},${myY}`;
 
     await initCamera();
+    await fetchIceServers(); // TURNサーバー情報をGASから取得
     resizeCanvas();
     await pushPos();
     startPolling();
