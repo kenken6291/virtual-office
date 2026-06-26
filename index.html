@@ -980,16 +980,32 @@ let ICE_CFG = {
 
 async function fetchIceServers() {
   try {
-    const res = await apiGet({ action: 'getIceServers' });
-    if (res.ok && res.iceServers) {
-      // GASのサーバーとフロントエンドのTURNをマージ（重複排除）
-      const gasUrls = new Set(res.iceServers.map(s => JSON.stringify(s.urls)));
-      const localOnly = ICE_CFG.iceServers.filter(s => !gasUrls.has(JSON.stringify(s.urls)));
+    // Metered.ca から動的にTURN credentialsを取得
+    const METERED_API_KEY = 'ab6c8bdd2a71c2c7a4e550ff7653c7c524b7';
+    const METERED_DOMAIN  = 'virtual-office-kenken6291.metered.live';
+    const r = await fetch(`https://${METERED_DOMAIN}/api/v1/turn/credentials?apiKey=${METERED_API_KEY}`);
+    if (r.ok) {
+      const turnServers = await r.json();
       ICE_CFG = {
-        iceServers: [...res.iceServers, ...localOnly],
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          ...turnServers,
+        ],
         iceCandidatePoolSize: 10,
       };
-      console.log('[ICE] servers loaded:', ICE_CFG.iceServers.length, 'entries');
+      console.log('[ICE] servers loaded:', ICE_CFG.iceServers.length, 'entries (with TURN)');
+      return;
+    }
+  } catch(e) {
+    console.warn('[ICE] Metered.ca fetch failed, trying GAS:', e);
+  }
+  // フォールバック: GASから取得
+  try {
+    const res = await apiGet({ action: 'getIceServers' });
+    if (res.ok && res.iceServers) {
+      ICE_CFG = { iceServers: res.iceServers, iceCandidatePoolSize: 10 };
+      console.log('[ICE] servers loaded (GAS):', ICE_CFG.iceServers.length, 'entries');
     }
   } catch(e) {
     console.warn('[ICE] failed to fetch servers, using defaults:', e);
