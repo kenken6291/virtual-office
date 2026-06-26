@@ -642,7 +642,10 @@ const pendingCalls = new Set(); // 接続処理中のUID（二重発火防止）
 async function apiGet(params) {
   const p = { ...params };
   if (myToken) p.token = myToken;
-  const res = await fetch(`${GAS_URL}?${new URLSearchParams(p)}`, { cache: 'no-store' });
+  const res = await fetch(`${GAS_URL}?${new URLSearchParams(p)}`, {
+    cache:    'no-store',
+    redirect: 'follow',
+  });
   const data = await res.json();
   if (!data.ok && data.code === 401) handleAuthError();
   return data;
@@ -650,7 +653,12 @@ async function apiGet(params) {
 async function apiPost(body) {
   const b = { ...body };
   if (myToken) b.token = myToken;
-  const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(b) });
+  const res = await fetch(GAS_URL, {
+    method:   'POST',
+    redirect: 'follow',
+    headers:  { 'Content-Type': 'text/plain' }, // GASのCORS回避: text/plainにする
+    body:     JSON.stringify(b),
+  });
   const data = await res.json();
   if (!data.ok && data.code === 401) handleAuthError();
   return data;
