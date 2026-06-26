@@ -902,11 +902,24 @@ async function pollUsers() {
   } catch(e) { document.getElementById('st-api').textContent='ERR'; }
 }
 
+const processedSignalIds = new Set(); // 重複処理防止
+
 async function pollSignals() {
   try {
     const res = await apiGet({ action:'getSignals' });
     if (!res.ok) return;
     for (const sig of res.signals) {
+      if (processedSignalIds.has(sig.id)) {
+        // 処理済みなのでGASから削除だけする
+        apiPost({ action:'deleteSignal', signalId:sig.id }).catch(()=>{});
+        continue;
+      }
+      processedSignalIds.add(sig.id);
+      // 古いIDが溜まりすぎないよう上限を設ける
+      if (processedSignalIds.size > 200) {
+        const first = processedSignalIds.values().next().value;
+        processedSignalIds.delete(first);
+      }
       await handleSignal(sig);
       apiPost({ action:'deleteSignal', signalId:sig.id }).catch(()=>{});
     }
@@ -1143,23 +1156,29 @@ function attachStreamToAudio(uid, stream) {
     audio.style.display = 'none';
     document.body.appendChild(audio);
   }
+  // 同じstreamなら再設定しない（AbortError回避）
+  if (audio.srcObject === stream) {
+    if (audio.paused) audio.play().catch(() => {});
+    return;
+  }
   audio.srcObject = stream;
-  // setSinkId: スピーカー出力を明示（対応ブラウザのみ）
   if (typeof audio.setSinkId === 'function') {
     audio.setSinkId('default').catch(() => {});
   }
-  // Androidの自動再生ポリシー対策: 明示的に play() を呼ぶ
+  // play()はsrcObject設定後に一度だけ呼ぶ
   const tryPlay = () => {
+    if (audio.srcObject !== stream) return; // 古い呼び出しを無視
     audio.play().catch(e => {
-      console.warn('audio play failed, will retry on user gesture:', e);
+      if (e.name === 'AbortError') return; // srcObject更新による中断は無視
+      console.warn('[audio] play failed, will retry on user gesture:', e.name);
     });
   };
+  // loadedmetadataを待ってからplay（確実性向上）
+  audio.onloadedmetadata = () => tryPlay();
   tryPlay();
-  // ユーザー操作があったタイミングでも再試行
+  // ユーザー操作時にも再試行
   const onGesture = () => {
-    tryPlay();
-    document.removeEventListener('touchstart', onGesture);
-    document.removeEventListener('click',      onGesture);
+    if (audio.paused && audio.srcObject) audio.play().catch(() => {});
   };
   document.addEventListener('touchstart', onGesture, { once: true });
   document.addEventListener('click',      onGesture, { once: true });
