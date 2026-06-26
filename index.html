@@ -2,32 +2,24 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Virtual Office</title>
-<!--
-  config.js は .gitignore に含め、GitHubにpushしないでください。
-  GAS_URL はこのファイルに直接書かず、config.js のみに記載します。
--->
 <script src="config.js"></script>
 <style>
 /* ─── リセット & 変数 ─────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:       #0c0c1e;
-  --panel:    #10102a;
-  --border:   #252550;
-  --accent:   #5f5fef;
-  --accent2:  #ef5fa7;
-  --green:    #3ddc84;
-  --red:      #ff4f6a;
-  --yellow:   #ffe066;
-  --text:     #d0d0f0;
-  --dim:      #555588;
-  --tile0:    #181832;
-  --tile1:    #080816;
-  --tile2:    #1c3050;
-  --tile3:    #0d3320;
+  --bg:      #0c0c1e;
+  --panel:   #10102a;
+  --border:  #252550;
+  --accent:  #5f5fef;
+  --accent2: #ef5fa7;
+  --green:   #3ddc84;
+  --red:     #ff4f6a;
+  --yellow:  #ffe066;
+  --text:    #d0d0f0;
+  --dim:     #555588;
 }
 
 body {
@@ -39,57 +31,57 @@ body {
   height: 100dvh;
   display: flex;
   flex-direction: column;
+  touch-action: none;
 }
 
-/* ─── ヘッダー ───────────────────────────────────────── */
+/* ════════════════════════════════════════
+   HEADER
+════════════════════════════════════════ */
 #header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 5px 14px;
+  gap: 8px;
+  padding: 5px 12px;
   background: var(--panel);
   border-bottom: 2px solid var(--border);
   flex-shrink: 0;
   z-index: 20;
 }
-
 #header h1 {
-  font-size: 12px;
-  letter-spacing: 3px;
+  font-size: 11px;
+  letter-spacing: 2px;
   color: var(--accent);
   text-transform: uppercase;
   flex: 1;
+  white-space: nowrap;
 }
 #header h1 em { color: var(--accent2); font-style: normal; }
-
 .hbadge {
-  font-size: 9px;
-  padding: 1px 6px;
+  font-size: 8px;
+  padding: 1px 5px;
   border: 1px solid var(--border);
   color: var(--dim);
 }
+#online-badge { font-size: 9px; color: var(--green); white-space: nowrap; }
 
-#online-badge {
-  font-size: 10px;
-  color: var(--green);
-}
+/* ════════════════════════════════════════
+   LAYOUT
+════════════════════════════════════════ */
+#app { display: flex; flex: 1; overflow: hidden; position: relative; }
 
-/* ─── レイアウト ─────────────────────────────────────── */
-#app { display: flex; flex: 1; overflow: hidden; }
-
-/* ─── マップ ─────────────────────────────────────────── */
+/* ════════════════════════════════════════
+   MAP
+════════════════════════════════════════ */
 #map-wrap {
   flex: 1;
   position: relative;
   overflow: hidden;
-  background: var(--tile1);
+  background: #080816;
 }
-
 #gameCanvas {
   display: block;
   image-rendering: pixelated;
 }
-
 #call-ring {
   position: absolute;
   bottom: 10px;
@@ -101,10 +93,13 @@ body {
   padding: 4px 10px;
   display: none;
   animation: pulse 1.2s infinite;
+  z-index: 5;
 }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
 
-/* ─── サイドバー ─────────────────────────────────────── */
+/* ════════════════════════════════════════
+   DESKTOP SIDEBAR (≥ 640px)
+════════════════════════════════════════ */
 #sidebar {
   width: 200px;
   flex-shrink: 0;
@@ -114,7 +109,6 @@ body {
   flex-direction: column;
   overflow: hidden;
 }
-
 .sb-head {
   font-size: 8px;
   letter-spacing: 3px;
@@ -123,8 +117,6 @@ body {
   padding: 7px 10px 4px;
   border-bottom: 1px solid var(--border);
 }
-
-/* ─── ビデオグリッド ─────────────────────────────────── */
 #video-grid {
   flex: 1;
   display: flex;
@@ -134,7 +126,6 @@ body {
   overflow-y: auto;
   min-height: 80px;
 }
-
 .vid-item {
   position: relative;
   background: #000;
@@ -157,18 +148,11 @@ body {
 }
 .vid-self .vid-label { color: var(--yellow); }
 
-/* ─── プレイヤーリスト ───────────────────────────────── */
-#players-wrap {
-  flex: 0 0 auto;
-  border-top: 1px solid var(--border);
-}
-
 #players-list {
-  max-height: 140px;
+  max-height: 130px;
   overflow-y: auto;
   padding: 4px 8px;
 }
-
 .pl-row {
   display: flex;
   align-items: center;
@@ -176,16 +160,11 @@ body {
   padding: 2px 0;
   font-size: 9px;
 }
-.pl-dot {
-  width: 7px;
-  height: 7px;
-  flex-shrink: 0;
-}
+.pl-dot { width: 7px; height: 7px; flex-shrink: 0; }
 .pl-name { flex: 1; }
 .pl-dist { color: var(--dim); font-size: 8px; }
 .pl-call { color: var(--accent2); font-size: 8px; }
 
-/* ─── コントロールヒント ─────────────────────────────── */
 #hints {
   padding: 7px 10px;
   border-top: 1px solid var(--border);
@@ -202,7 +181,126 @@ body {
   border-bottom: 2px solid #333;
 }
 
-/* ─── ステータスバー ─────────────────────────────────── */
+/* ════════════════════════════════════════
+   MOBILE OVERLAY VIDEOS (< 640px)
+  ビデオを右上に小さく重ねて表示
+════════════════════════════════════════ */
+#mobile-videos {
+  display: none;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  pointer-events: none;
+}
+.mob-vid-item {
+  position: relative;
+  width: 80px;
+  background: #000;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.mob-vid-item video {
+  width: 100%;
+  display: block;
+  aspect-ratio: 4/3;
+  object-fit: cover;
+}
+.mob-vid-label {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,.7);
+  font-size: 6px;
+  padding: 1px 3px;
+  color: var(--text);
+}
+.mob-vid-self .mob-vid-label { color: var(--yellow); }
+
+/* ════════════════════════════════════════
+   MOBILE BOTTOM DRAWER
+════════════════════════════════════════ */
+#mob-drawer {
+  display: none;
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: var(--panel);
+  border-top: 2px solid var(--border);
+  z-index: 15;
+  transition: transform .25s ease;
+  transform: translateY(100%);
+}
+#mob-drawer.open { transform: translateY(0); }
+
+#mob-drawer-handle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+#mob-drawer-handle span { font-size: 9px; color: var(--dim); letter-spacing: 2px; }
+#mob-drawer-handle .arrow { font-size: 10px; color: var(--accent); transition: transform .2s; }
+#mob-drawer.open .arrow { transform: rotate(180deg); }
+
+#mob-drawer-content {
+  padding: 8px 12px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+#mob-players-list .pl-row { font-size: 10px; padding: 3px 0; }
+#mob-players-list .pl-dot { width: 9px; height: 9px; }
+
+/* ════════════════════════════════════════
+   DPAD (スマホ用タップ操作)
+════════════════════════════════════════ */
+#dpad {
+  display: none;
+  position: absolute;
+  bottom: 60px;
+  left: 16px;
+  z-index: 10;
+  width: 108px;
+  height: 108px;
+}
+.dpad-btn {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  background: rgba(95,95,239,.35);
+  border: 1px solid rgba(95,95,239,.6);
+  color: #fff;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 3px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  user-select: none;
+}
+.dpad-btn:active { background: rgba(95,95,239,.65); }
+#dpad-up    { top: 0;    left: 37px; }
+#dpad-down  { bottom: 0; left: 37px; }
+#dpad-left  { top: 37px; left: 0;    }
+#dpad-right { top: 37px; right: 0;   }
+#dpad-center {
+  position: absolute;
+  top: 37px; left: 37px;
+  width: 34px; height: 34px;
+  background: rgba(30,30,60,.5);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+/* ════════════════════════════════════════
+   STATUSBAR
+════════════════════════════════════════ */
 #statusbar {
   flex-shrink: 0;
   background: var(--panel);
@@ -211,11 +309,15 @@ body {
   font-size: 8px;
   color: var(--dim);
   display: flex;
-  gap: 16px;
+  gap: 12px;
+  overflow-x: auto;
+  white-space: nowrap;
 }
 #statusbar span { color: var(--text); }
 
-/* ─── モーダル ───────────────────────────────────────── */
+/* ════════════════════════════════════════
+   MODAL
+════════════════════════════════════════ */
 #modal-wrap {
   position: fixed;
   inset: 0;
@@ -224,25 +326,24 @@ body {
   align-items: center;
   justify-content: center;
   z-index: 100;
+  padding: 16px;
 }
-
 .modal {
   background: var(--panel);
   border: 2px solid var(--accent);
-  padding: 26px 28px;
-  width: 300px;
+  padding: 24px;
+  width: 100%;
+  max-width: 320px;
   box-shadow: 0 0 50px rgba(95,95,239,.25);
 }
-
 .modal h2 {
   font-size: 11px;
   letter-spacing: 3px;
   text-transform: uppercase;
   color: var(--accent);
-  margin-bottom: 22px;
+  margin-bottom: 20px;
   text-align: center;
 }
-
 .modal label {
   display: block;
   font-size: 8px;
@@ -251,52 +352,50 @@ body {
   margin-bottom: 4px;
   text-transform: uppercase;
 }
-
 .modal input[type=text] {
   width: 100%;
   background: var(--bg);
   border: 1px solid var(--border);
   color: var(--text);
-  padding: 6px 9px;
+  padding: 8px 10px;
   font-family: inherit;
-  font-size: 12px;
+  font-size: 14px;
   outline: none;
   margin-bottom: 14px;
+  border-radius: 0;
+  -webkit-appearance: none;
 }
 .modal input:focus { border-color: var(--accent); }
-
-.color-row {
-  display: flex;
-  gap: 7px;
-  margin-bottom: 18px;
-}
+.color-row { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
 .color-sw {
-  width: 24px;
-  height: 24px;
+  width: 30px;
+  height: 30px;
   border: 2px solid transparent;
   cursor: pointer;
   image-rendering: pixelated;
-  transition: transform .1s;
+  border-radius: 2px;
 }
-.color-sw:hover { transform: scale(1.15); }
 .color-sw.sel { border-color: #fff; }
-
 .btn {
   width: 100%;
   background: var(--accent);
   border: none;
   color: #fff;
   font-family: inherit;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 2px;
-  padding: 8px;
+  padding: 11px;
   cursor: pointer;
   text-transform: uppercase;
+  -webkit-appearance: none;
+  border-radius: 0;
 }
-.btn:hover { background: #7070ff; }
-.btn:disabled { background: var(--border); color: var(--dim); cursor: default; }
+.btn:active { background: #7070ff; }
+.btn:disabled { background: var(--border); color: var(--dim); }
 
-/* ─── トースト ───────────────────────────────────────── */
+/* ════════════════════════════════════════
+   TOAST & ERROR
+════════════════════════════════════════ */
 #toast {
   position: fixed;
   top: 46px;
@@ -312,10 +411,10 @@ body {
   transition: opacity .25s;
   z-index: 200;
   white-space: nowrap;
+  max-width: 90vw;
+  text-align: center;
 }
 #toast.show { opacity: 1; }
-
-/* ─── エラーバナー ───────────────────────────────────── */
 #error-banner {
   position: fixed;
   top: 40px;
@@ -325,25 +424,41 @@ body {
   color: #fff;
   padding: 5px 16px;
   font-size: 9px;
-  letter-spacing: 1px;
   display: none;
   z-index: 300;
+  white-space: nowrap;
 }
 
-/* ─── スクロールバー ─────────────────────────────────── */
+/* scrollbar */
 ::-webkit-scrollbar { width: 3px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border); }
+
+/* ════════════════════════════════════════
+   RESPONSIVE BREAKPOINT
+════════════════════════════════════════ */
+@media (max-width: 639px) {
+  /* サイドバーを非表示 */
+  #sidebar { display: none; }
+  /* モバイル専用UIを表示 */
+  #mobile-videos { display: flex; }
+  #dpad          { display: block; }
+  #mob-drawer    { display: block; }
+  /* ヘッダーをコンパクトに */
+  #header h1 { font-size: 10px; letter-spacing: 1px; }
+  .hbadge { display: none; }
+  /* ステータスバーを縮小 */
+  #statusbar { font-size: 7px; gap: 8px; }
+}
 </style>
 </head>
 <body>
 
-<!-- ───── config.js 未設定チェック ───── -->
 <div id="error-banner">⚠️ config.js が見つかりません。SETUP.md を参照してください。</div>
 
 <!-- ───── 入室モーダル ───── -->
 <div id="modal-wrap">
-  <div class="modal" id="login-modal">
+  <div class="modal">
     <h2>★ Virtual Office ★</h2>
     <label>ニックネーム</label>
     <input id="name-input" type="text" maxlength="16" placeholder="あなたの名前" autocomplete="off">
@@ -363,11 +478,41 @@ body {
 <!-- ───── メイン ───── -->
 <div id="app">
 
+  <!-- MAP -->
   <div id="map-wrap">
     <canvas id="gameCanvas"></canvas>
     <div id="call-ring">📡 通話中...</div>
+
+    <!-- モバイル: オーバーレイビデオ -->
+    <div id="mobile-videos">
+      <div class="mob-vid-item mob-vid-self" id="mob-self-wrap">
+        <video id="mob-self-video" autoplay muted playsinline></video>
+        <div class="mob-vid-label" id="mob-self-label">あなた</div>
+      </div>
+    </div>
+
+    <!-- モバイル: Dパッド -->
+    <div id="dpad">
+      <div class="dpad-btn" id="dpad-up">↑</div>
+      <div class="dpad-btn" id="dpad-left">←</div>
+      <div class="dpad-center"></div>
+      <div class="dpad-btn" id="dpad-right">→</div>
+      <div class="dpad-btn" id="dpad-down">↓</div>
+    </div>
+
+    <!-- モバイル: 下部ドロワー -->
+    <div id="mob-drawer">
+      <div id="mob-drawer-handle">
+        <span>▶ MEMBERS</span>
+        <span class="arrow">▲</span>
+      </div>
+      <div id="mob-drawer-content">
+        <div id="mob-players-list"></div>
+      </div>
+    </div>
   </div>
 
+  <!-- デスクトップ: サイドバー -->
   <div id="sidebar">
     <div class="sb-head">▶ Video</div>
     <div id="video-grid">
@@ -376,12 +521,8 @@ body {
         <div class="vid-label" id="self-vid-label">あなた</div>
       </div>
     </div>
-
-    <div class="players-wrap">
-      <div class="sb-head">▶ Members</div>
-      <div id="players-list"></div>
-    </div>
-
+    <div class="sb-head">▶ Members</div>
+    <div id="players-list"></div>
     <div id="hints">
       <span class="key">↑↓←→</span> / <span class="key">WASD</span> で移動<br>
       近づくと自動で通話開始<br>
@@ -392,7 +533,7 @@ body {
 
 <!-- ───── ステータスバー ───── -->
 <div id="statusbar">
-  <div>POS <span id="st-pos">-, -</span></div>
+  <div>POS <span id="st-pos">-,-</span></div>
   <div>API <span id="st-api">-</span></div>
   <div>CAM <span id="st-cam">-</span></div>
   <div>CALL <span id="st-call">-</span></div>
@@ -408,10 +549,13 @@ if (!window.OFFICE_CONFIG || !window.OFFICE_CONFIG.GAS_URL ||
     window.OFFICE_CONFIG.GAS_URL.includes('★')) {
   document.getElementById('error-banner').style.display = 'block';
   document.getElementById('enter-btn').disabled = true;
-  console.error('[VirtualOffice] config.js が未設定です。GAS_URLを設定してください。');
 }
-
 const GAS_URL = window.OFFICE_CONFIG?.GAS_URL ?? '';
+
+// ============================================================
+// デバイス判定
+// ============================================================
+const IS_MOBILE = () => window.innerWidth < 640;
 
 // ============================================================
 // 定数
@@ -422,13 +566,8 @@ const MAP_H      = 18;
 const CALL_RANGE = 3;
 const POLL_MS    = 1500;
 
-const AVATAR_COLORS = [
-  '#ef5fa7','#5fefb0','#efcf5f','#5faaef','#ef8f5f','#af5fef'
-];
+const AVATAR_COLORS = ['#ef5fa7','#5fefb0','#efcf5f','#5faaef','#ef8f5f','#af5fef'];
 
-// ============================================================
-// マップデータ (0=床, 1=壁, 2=デスク, 3=植物)
-// ============================================================
 const MAP = [
   [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
   [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1],
@@ -451,56 +590,37 @@ const MAP = [
 ];
 
 // ============================================================
-// セッション状態（メモリのみ、localStorageに保存しない）
+// セッション状態
 // ============================================================
-let myId    = null;   // サーバー発行
-let myToken = null;   // サーバー発行（GAS_URLと一緒にネットワークに出るが
-                      // それ自体がシークレットを含まない、署名付きトークン）
-let myName  = 'ゲスト';
-let myColor = AVATAR_COLORS[0];
-let myX     = 3;
-let myY     = 3;
-
-let otherUsers  = {};
-let localStream = null;
-const peers         = {};
-const remoteStreams  = {};
-const activeCalls   = new Set();
+let myId = null, myToken = null;
+let myName = 'ゲスト', myColor = AVATAR_COLORS[0];
+let myX = 3, myY = 3;
+let otherUsers = {}, localStream = null;
+const peers = {}, remoteStreams = {}, activeCalls = new Set();
 
 // ============================================================
-// GAS 通信ヘルパー（トークン自動付与）
+// API ヘルパー
 // ============================================================
 async function apiGet(params) {
-  const merged = { ...params };
-  if (myToken) merged.token = myToken;
-  const qs  = new URLSearchParams(merged).toString();
-  const res = await fetch(`${GAS_URL}?${qs}`, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const p = { ...params };
+  if (myToken) p.token = myToken;
+  const res = await fetch(`${GAS_URL}?${new URLSearchParams(p)}`, { cache: 'no-store' });
   const data = await res.json();
   if (!data.ok && data.code === 401) handleAuthError();
   return data;
 }
-
 async function apiPost(body) {
-  const merged = { ...body };
-  if (myToken) merged.token = myToken;
-  const res = await fetch(GAS_URL, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(merged),
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const b = { ...body };
+  if (myToken) b.token = myToken;
+  const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(b) });
   const data = await res.json();
   if (!data.ok && data.code === 401) handleAuthError();
   return data;
 }
-
 function handleAuthError() {
-  toast('⚠️ セッションが無効になりました。再入室してください。', 'red');
+  toast('⚠️ セッションが無効です。再入室してください。');
   stopPolling();
-  // 状態をリセットして再ログイン可能にする
-  myToken = null;
-  myId    = null;
+  myToken = null; myId = null;
   document.getElementById('modal-wrap').style.display = 'flex';
 }
 
@@ -508,7 +628,7 @@ function handleAuthError() {
 // Canvas
 // ============================================================
 const canvas = document.getElementById('gameCanvas');
-const ctx    = canvas.getContext('2d');
+const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
 function resizeCanvas() {
@@ -516,11 +636,18 @@ function resizeCanvas() {
   canvas.width  = w.clientWidth;
   canvas.height = w.clientHeight;
 }
-window.addEventListener('resize', resizeCanvas);
+window.addEventListener('resize', () => { resizeCanvas(); });
 
 // ============================================================
 // 描画
 // ============================================================
+const TCOL = {
+  0: { f:'#181832', s:'#1e1e42' },
+  1: { f:'#080816', s:'#0d0d24' },
+  2: { f:'#1c3050', s:'#2a4870' },
+  3: { f:'#0d3320', s:'#155535' },
+};
+
 function getCam() {
   return {
     ox: canvas.width  / 2 - myX * TILE - TILE / 2,
@@ -528,450 +655,354 @@ function getCam() {
   };
 }
 
-const TCOL = {
-  0: { f: '#181832', s: '#1e1e42' },
-  1: { f: '#080816', s: '#0d0d24' },
-  2: { f: '#1c3050', s: '#2a4870' },
-  3: { f: '#0d3320', s: '#155535' },
-};
-
 function drawFrame() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const { ox, oy } = getCam();
 
-  // タイル
   for (let ty = 0; ty < MAP_H; ty++) {
     for (let tx = 0; tx < MAP_W; tx++) {
-      const t  = MAP[ty][tx];
-      const c  = TCOL[t] ?? TCOL[0];
-      const sx = tx * TILE + ox;
-      const sy = ty * TILE + oy;
-
+      const t = MAP[ty][tx];
+      const c = TCOL[t] ?? TCOL[0];
+      const sx = tx * TILE + ox, sy = ty * TILE + oy;
       ctx.fillStyle = c.f;
       ctx.fillRect(sx, sy, TILE, TILE);
       ctx.strokeStyle = c.s;
       ctx.lineWidth = 1;
-      ctx.strokeRect(sx + .5, sy + .5, TILE - 1, TILE - 1);
-
+      ctx.strokeRect(sx+.5, sy+.5, TILE-1, TILE-1);
       if (t === 3) drawPlant(sx, sy);
       if (t === 2) drawDesk(sx, sy);
     }
   }
 
   // 通話範囲サークル
-  const cx = myX * TILE + TILE / 2 + ox;
-  const cy = myY * TILE + TILE / 2 + oy;
+  const cx = myX * TILE + TILE/2 + ox;
+  const cy = myY * TILE + TILE/2 + oy;
   ctx.save();
   ctx.strokeStyle = activeCalls.size ? 'rgba(239,95,167,.45)' : 'rgba(95,95,239,.18)';
   ctx.lineWidth = 1;
-  ctx.setLineDash([4, 4]);
+  ctx.setLineDash([4,4]);
   ctx.beginPath();
-  ctx.arc(cx, cy, (CALL_RANGE + .5) * TILE, 0, Math.PI * 2);
+  ctx.arc(cx, cy, (CALL_RANGE+.5)*TILE, 0, Math.PI*2);
   ctx.stroke();
   ctx.restore();
 
-  // 他ユーザー
-  for (const u of Object.values(otherUsers)) {
-    drawAvatar(u.x * TILE + ox, u.y * TILE + oy, u.avatarColor, u.name, false);
-  }
-  // 自分
-  drawAvatar(myX * TILE + ox, myY * TILE + oy, myColor, myName, true);
+  for (const u of Object.values(otherUsers))
+    drawAvatar(u.x*TILE+ox, u.y*TILE+oy, u.avatarColor, u.name, false);
+  drawAvatar(myX*TILE+ox, myY*TILE+oy, myColor, myName, true);
 
   requestAnimationFrame(drawFrame);
 }
 
 function drawPlant(sx, sy) {
-  ctx.fillStyle = '#1f8844';
-  ctx.fillRect(sx + 10, sy + 6,  12, 10);
-  ctx.fillRect(sx + 8,  sy + 10, 16, 8);
-  ctx.fillStyle = '#155535';
-  ctx.fillRect(sx + 14, sy + 16, 4, 8);
+  ctx.fillStyle='#1f8844'; ctx.fillRect(sx+10,sy+6,12,10); ctx.fillRect(sx+8,sy+10,16,8);
+  ctx.fillStyle='#155535'; ctx.fillRect(sx+14,sy+16,4,8);
 }
-
 function drawDesk(sx, sy) {
-  ctx.fillStyle = '#2a4870';
-  ctx.fillRect(sx + 4, sy + 6, TILE - 8, 12);
-  ctx.fillStyle = '#5090c8';
-  ctx.fillRect(sx + 8, sy + 9, TILE - 16, 6);
+  ctx.fillStyle='#2a4870'; ctx.fillRect(sx+4,sy+6,TILE-8,12);
+  ctx.fillStyle='#5090c8'; ctx.fillRect(sx+8,sy+9,TILE-16,6);
 }
-
 function drawAvatar(sx, sy, color, name, isMe) {
   const s = TILE;
-  // 影
-  ctx.fillStyle = 'rgba(0,0,0,.3)';
-  ctx.fillRect(sx + 4, sy + s - 5, s - 8, 4);
-  // 体・手足
-  ctx.fillStyle = isMe ? brighten(color, 30) : color;
-  ctx.fillRect(sx + 8,      sy + 14, s - 16, 12);
-  ctx.fillRect(sx + 4,      sy + 26, 6, 6);
-  ctx.fillRect(sx + s - 10, sy + 26, 6, 6);
-  ctx.fillRect(sx + 2,      sy + 14, 5, 10);
-  ctx.fillRect(sx + s - 7,  sy + 14, 5, 10);
-  // 頭
-  ctx.fillStyle = '#f5c6a0';
-  ctx.fillRect(sx + 8, sy + 4, s - 16, 12);
-  // 髪
-  ctx.fillStyle = darken(color, 40);
-  ctx.fillRect(sx + 8, sy + 4, s - 16, 4);
-  ctx.fillRect(sx + 6, sy + 6, 3, 6);
-  // 目
-  ctx.fillStyle = '#1a1a2e';
-  ctx.fillRect(sx + 11, sy + 9, 2, 3);
-  ctx.fillRect(sx + s - 13, sy + 9, 2, 3);
-  // 自分マーカー (▲)
+  ctx.fillStyle='rgba(0,0,0,.3)'; ctx.fillRect(sx+4,sy+s-5,s-8,4);
+  ctx.fillStyle = isMe ? brighten(color,30) : color;
+  ctx.fillRect(sx+8,sy+14,s-16,12); ctx.fillRect(sx+4,sy+26,6,6);
+  ctx.fillRect(sx+s-10,sy+26,6,6); ctx.fillRect(sx+2,sy+14,5,10);
+  ctx.fillRect(sx+s-7,sy+14,5,10);
+  ctx.fillStyle='#f5c6a0'; ctx.fillRect(sx+8,sy+4,s-16,12);
+  ctx.fillStyle=darken(color,40); ctx.fillRect(sx+8,sy+4,s-16,4); ctx.fillRect(sx+6,sy+6,3,6);
+  ctx.fillStyle='#1a1a2e'; ctx.fillRect(sx+11,sy+9,2,3); ctx.fillRect(sx+s-13,sy+9,2,3);
   if (isMe) {
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.moveTo(sx + s/2, sy - 8);
-    ctx.lineTo(sx + s/2 - 4, sy - 2);
-    ctx.lineTo(sx + s/2 + 4, sy - 2);
-    ctx.closePath();
-    ctx.fill();
+    ctx.fillStyle='#fff';
+    ctx.beginPath(); ctx.moveTo(sx+s/2,sy-8); ctx.lineTo(sx+s/2-4,sy-2); ctx.lineTo(sx+s/2+4,sy-2);
+    ctx.closePath(); ctx.fill();
   }
-  // 名前
-  ctx.font = '7px "Courier New"';
-  ctx.textAlign = 'center';
-  ctx.fillStyle = 'rgba(0,0,0,.55)';
-  ctx.fillText(name, sx + s/2 + 1, sy + s - 1);
-  ctx.fillStyle = isMe ? '#ffe066' : '#e0e0ff';
-  ctx.fillText(name, sx + s/2, sy + s - 2);
+  ctx.font='7px "Courier New"'; ctx.textAlign='center';
+  ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillText(name,sx+s/2+1,sy+s-1);
+  ctx.fillStyle = isMe ? '#ffe066' : '#e0e0ff'; ctx.fillText(name,sx+s/2,sy+s-2);
 }
-
-function brighten(hex, a) { return shiftHex(hex, a); }
-function darken(hex, a)   { return shiftHex(hex, -a); }
-function shiftHex(hex, a) {
-  const n = parseInt(hex.slice(1), 16);
-  const clamp = v => Math.min(255, Math.max(0, v));
-  const r = clamp((n >> 16) + a);
-  const g = clamp(((n >> 8) & 0xff) + a);
-  const b = clamp((n & 0xff) + a);
-  return '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
+function brighten(hex,a){return shiftHex(hex,a);}
+function darken(hex,a){return shiftHex(hex,-a);}
+function shiftHex(hex,a){
+  const n=parseInt(hex.slice(1),16),cl=v=>Math.min(255,Math.max(0,v));
+  return '#'+[cl((n>>16)+a),cl(((n>>8)&255)+a),cl((n&255)+a)].map(v=>v.toString(16).padStart(2,'0')).join('');
 }
 
 // ============================================================
-// キー入力
+// キーボード移動 (デスクトップ)
 // ============================================================
 const keys = {};
 let moveInterval = null;
 
 document.addEventListener('keydown', e => {
-  const dir = ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d'];
-  if (dir.includes(e.key)) {
-    e.preventDefault();
-    keys[e.key] = true;
-    if (!moveInterval) moveInterval = setInterval(tick, 150);
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d'].includes(e.key)) {
+    e.preventDefault(); keys[e.key] = true;
+    if (!moveInterval) moveInterval = setInterval(moveTick, 150);
   }
 });
-
 document.addEventListener('keyup', e => {
   keys[e.key] = false;
-  if (!Object.values(keys).some(Boolean)) {
-    clearInterval(moveInterval);
-    moveInterval = null;
-  }
+  if (!Object.values(keys).some(Boolean)) { clearInterval(moveInterval); moveInterval = null; }
 });
 
-function tick() {
-  if (!myToken) return;
-  let dx = 0, dy = 0;
-  if (keys['ArrowUp']    || keys['w']) dy = -1;
-  if (keys['ArrowDown']  || keys['s']) dy =  1;
-  if (keys['ArrowLeft']  || keys['a']) dx = -1;
-  if (keys['ArrowRight'] || keys['d']) dx =  1;
-  if (!dx && !dy) return;
+// ============================================================
+// Dパッド (スマホ)
+// ============================================================
+const DPAD_DIRS = {
+  'dpad-up':    { dy:-1 },
+  'dpad-down':  { dy: 1 },
+  'dpad-left':  { dx:-1 },
+  'dpad-right': { dx: 1 },
+};
+let dpadInterval = null;
+let dpadDx = 0, dpadDy = 0;
 
-  const nx = myX + dx, ny = myY + dy;
-  if (nx >= 0 && nx < MAP_W && ny >= 0 && ny < MAP_H && MAP[ny][nx] === 0) {
-    myX = nx; myY = ny;
-    document.getElementById('st-pos').textContent = `${myX}, ${myY}`;
+Object.keys(DPAD_DIRS).forEach(id => {
+  const el = document.getElementById(id);
+  const { dx=0, dy=0 } = DPAD_DIRS[id];
+
+  const start = (e) => {
+    e.preventDefault();
+    dpadDx = dx; dpadDy = dy;
+    if (!dpadInterval) dpadInterval = setInterval(dpadTick, 200);
+  };
+  const end = (e) => {
+    e.preventDefault();
+    dpadDx = 0; dpadDy = 0;
+    clearInterval(dpadInterval); dpadInterval = null;
+  };
+
+  el.addEventListener('touchstart', start, { passive: false });
+  el.addEventListener('touchend',   end,   { passive: false });
+  el.addEventListener('mousedown',  start);
+  el.addEventListener('mouseup',    end);
+});
+
+function dpadTick() {
+  if (!dpadDx && !dpadDy) return;
+  tryMove(dpadDx, dpadDy);
+}
+
+// ============================================================
+// 移動共通
+// ============================================================
+function moveTick() {
+  let dx=0, dy=0;
+  if (keys['ArrowUp']   ||keys['w']) dy=-1;
+  if (keys['ArrowDown'] ||keys['s']) dy= 1;
+  if (keys['ArrowLeft'] ||keys['a']) dx=-1;
+  if (keys['ArrowRight']||keys['d']) dx= 1;
+  if (dx||dy) tryMove(dx,dy);
+}
+
+function tryMove(dx, dy) {
+  if (!myToken) return;
+  const nx=myX+dx, ny=myY+dy;
+  if (nx>=0&&nx<MAP_W&&ny>=0&&ny<MAP_H&&MAP[ny][nx]===0) {
+    myX=nx; myY=ny;
+    document.getElementById('st-pos').textContent=`${myX},${myY}`;
     pushPos();
     checkProximity();
   }
 }
 
 // ============================================================
-// GAS: 自位置送信
+// Dpadドロワートグル
+// ============================================================
+document.getElementById('mob-drawer-handle').addEventListener('click', () => {
+  document.getElementById('mob-drawer').classList.toggle('open');
+});
+
+// ============================================================
+// GAS 通信
 // ============================================================
 async function pushPos() {
   try {
-    await apiPost({
-      action:      'updatePosition',
-      name:        myName,
-      x:           myX,
-      y:           myY,
-      avatarColor: myColor,
-    });
-  } catch (e) {
-    console.warn('pushPos error', e);
-  }
+    await apiPost({ action:'updatePosition', name:myName, x:myX, y:myY, avatarColor:myColor });
+  } catch(e) { console.warn('pushPos',e); }
 }
 
-// ============================================================
-// ポーリング制御
-// ============================================================
-let pollUsersTid   = null;
-let pollSignalsTid = null;
-let keepaliveTid   = null;
-
+let pollUsersTid=null, pollSignalsTid=null, keepaliveTid=null;
 function startPolling() {
   pollUsersTid   = setInterval(pollUsers,   POLL_MS);
   pollSignalsTid = setInterval(pollSignals, POLL_MS);
   keepaliveTid   = setInterval(pushPos, 8000);
 }
-
 function stopPolling() {
-  clearInterval(pollUsersTid);
-  clearInterval(pollSignalsTid);
-  clearInterval(keepaliveTid);
+  clearInterval(pollUsersTid); clearInterval(pollSignalsTid); clearInterval(keepaliveTid);
 }
 
 async function pollUsers() {
   try {
-    const res = await apiGet({ action: 'getUsers' });
+    const res = await apiGet({ action:'getUsers' });
     if (!res.ok) return;
     otherUsers = {};
     let cnt = 0;
     for (const u of res.users) {
-      if (u.userId === myId) continue;
-      otherUsers[u.userId] = u;
-      cnt++;
+      if (u.userId===myId) continue;
+      otherUsers[u.userId] = u; cnt++;
     }
-    document.getElementById('online-badge').textContent = `● ${cnt + 1} online`;
+    document.getElementById('online-badge').textContent = `● ${cnt+1} online`;
     updatePlayersList();
     document.getElementById('st-api').textContent = 'OK';
-  } catch (e) {
-    document.getElementById('st-api').textContent = 'ERR';
-  }
+  } catch(e) { document.getElementById('st-api').textContent='ERR'; }
 }
 
 async function pollSignals() {
   try {
-    const res = await apiGet({ action: 'getSignals' });
+    const res = await apiGet({ action:'getSignals' });
     if (!res.ok) return;
     for (const sig of res.signals) {
       await handleSignal(sig);
-      // 処理済みを削除
-      apiPost({ action: 'deleteSignal', signalId: sig.id }).catch(() => {});
+      apiPost({ action:'deleteSignal', signalId:sig.id }).catch(()=>{});
     }
-  } catch (e) {
-    console.warn('pollSignals error', e);
-  }
+  } catch(e) { console.warn('pollSignals',e); }
 }
 
 // ============================================================
 // 近接検知
 // ============================================================
-function dist2D(a, b) {
-  return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
-}
+function dist2D(a,b) { return Math.sqrt((a.x-b.x)**2+(a.y-b.y)**2); }
 
 async function checkProximity() {
   if (!localStream) return;
-
-  for (const [uid, u] of Object.entries(otherUsers)) {
-    const d = dist2D({ x: myX, y: myY }, u);
-    if (d <= CALL_RANGE && !activeCalls.has(uid)) {
-      // IDの辞書順で Offerer を決定（二重接続防止）
-      if (myId < uid) await startCall(uid);
-    } else if (d > CALL_RANGE && activeCalls.has(uid)) {
-      endCall(uid);
-    }
+  for (const [uid,u] of Object.entries(otherUsers)) {
+    const d = dist2D({x:myX,y:myY}, u);
+    if (d<=CALL_RANGE&&!activeCalls.has(uid)) { if(myId<uid) await startCall(uid); }
+    else if (d>CALL_RANGE&&activeCalls.has(uid)) endCall(uid);
   }
-
-  // オフラインになったユーザーとの通話を終了
-  for (const uid of [...activeCalls]) {
-    if (!otherUsers[uid]) endCall(uid);
-  }
-
-  document.getElementById('call-ring').style.display =
-    activeCalls.size > 0 ? 'block' : 'none';
-  document.getElementById('st-call').textContent =
-    activeCalls.size > 0 ? `${activeCalls.size}件` : 'なし';
+  for (const uid of [...activeCalls]) { if(!otherUsers[uid]) endCall(uid); }
+  const hasCall = activeCalls.size > 0;
+  document.getElementById('call-ring').style.display = hasCall ? 'block' : 'none';
+  document.getElementById('st-call').textContent = hasCall ? `${activeCalls.size}件` : 'なし';
 }
 
 // ============================================================
-// WebRTC ICEサーバー設定
+// WebRTC
 // ============================================================
-const ICE_CFG = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-  ]
-};
+const ICE_CFG = { iceServers:[
+  {urls:'stun:stun.l.google.com:19302'},
+  {urls:'stun:stun1.l.google.com:19302'},
+]};
 
-// ============================================================
-// WebRTC: 通話開始 (Offerer)
-// ============================================================
 async function startCall(targetId) {
   if (peers[targetId]) return;
   activeCalls.add(targetId);
-
-  const pc = buildPeerConnection(targetId);
+  const pc = buildPC(targetId);
   peers[targetId] = pc;
-
-  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-
+  localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
-
-  await apiPost({
-    action: 'sendSignal',
-    to:     targetId,
-    type:   'offer',
-    payload: offer,
-  });
-  toast(`📡 ${otherUsers[targetId]?.name ?? '?'} に接続中...`);
+  await apiPost({ action:'sendSignal', to:targetId, type:'offer', payload:offer });
+  toast(`📡 ${otherUsers[targetId]?.name??'?'} に接続中...`);
 }
 
-// ============================================================
-// WebRTC: RTCPeerConnection 生成
-// ============================================================
-function buildPeerConnection(targetId) {
+function buildPC(targetId) {
   const pc = new RTCPeerConnection(ICE_CFG);
-
-  pc.onicecandidate = ({ candidate }) => {
-    if (candidate) {
-      apiPost({
-        action: 'sendSignal',
-        to:     targetId,
-        type:   'ice',
-        payload: candidate,
-      }).catch(() => {});
-    }
+  pc.onicecandidate = ({candidate}) => {
+    if (candidate) apiPost({ action:'sendSignal', to:targetId, type:'ice', payload:candidate }).catch(()=>{});
   };
-
-  pc.ontrack = ({ streams }) => {
-    const stream = streams[0];
-    remoteStreams[targetId] = stream;
-    addRemoteVideo(targetId, stream);
+  pc.ontrack = ({streams}) => {
+    remoteStreams[targetId] = streams[0];
+    addRemoteVideo(targetId, streams[0]);
   };
-
   pc.onconnectionstatechange = () => {
     const s = pc.connectionState;
-    if (s === 'connected') {
-      toast(`✅ ${otherUsers[targetId]?.name ?? '?'} と通話中`);
-    }
-    if (['disconnected','failed','closed'].includes(s)) {
-      endCall(targetId);
-    }
+    if (s==='connected') toast(`✅ ${otherUsers[targetId]?.name??'?'} と通話中`);
+    if (['disconnected','failed','closed'].includes(s)) endCall(targetId);
   };
-
   return pc;
 }
 
-// ============================================================
-// WebRTC: シグナル処理
-// ============================================================
 async function handleSignal({ from, type, payload }) {
-  if (type === 'offer') {
+  if (type==='offer') {
     if (peers[from]) return;
-
     activeCalls.add(from);
-    const pc = buildPeerConnection(from);
+    const pc = buildPC(from);
     peers[from] = pc;
-
-    localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-
+    localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
     await pc.setRemoteDescription(new RTCSessionDescription(payload));
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
-
-    await apiPost({
-      action: 'sendSignal',
-      to:     from,
-      type:   'answer',
-      payload: answer,
-    });
-
-    document.getElementById('call-ring').style.display = 'block';
-    toast(`📞 ${otherUsers[from]?.name ?? '?'} から着信`);
-  }
-
-  else if (type === 'answer') {
-    const pc = peers[from];
-    if (pc && pc.signalingState !== 'stable') {
-      await pc.setRemoteDescription(new RTCSessionDescription(payload));
-    }
-  }
-
-  else if (type === 'ice') {
-    const pc = peers[from];
-    if (pc) {
-      try { await pc.addIceCandidate(new RTCIceCandidate(payload)); } catch (e) {}
-    }
+    await apiPost({ action:'sendSignal', to:from, type:'answer', payload:answer });
+    document.getElementById('call-ring').style.display='block';
+    toast(`📞 ${otherUsers[from]?.name??'?'} から着信`);
+  } else if (type==='answer') {
+    const pc=peers[from];
+    if (pc&&pc.signalingState!=='stable') await pc.setRemoteDescription(new RTCSessionDescription(payload));
+  } else if (type==='ice') {
+    const pc=peers[from];
+    if (pc) try { await pc.addIceCandidate(new RTCIceCandidate(payload)); } catch(e){}
   }
 }
 
-// ============================================================
-// WebRTC: 通話終了
-// ============================================================
 function endCall(uid) {
-  peers[uid]?.close();
-  delete peers[uid];
-  delete remoteStreams[uid];
+  peers[uid]?.close(); delete peers[uid]; delete remoteStreams[uid];
   activeCalls.delete(uid);
   removeRemoteVideo(uid);
-
-  document.getElementById('call-ring').style.display =
-    activeCalls.size > 0 ? 'block' : 'none';
-  document.getElementById('st-call').textContent =
-    activeCalls.size > 0 ? `${activeCalls.size}件` : 'なし';
+  const hasCall = activeCalls.size>0;
+  document.getElementById('call-ring').style.display = hasCall?'block':'none';
+  document.getElementById('st-call').textContent = hasCall?`${activeCalls.size}件`:'なし';
 }
 
 // ============================================================
-// ビデオUI
+// ビデオUI — デスクトップ & モバイル両対応
 // ============================================================
 function addRemoteVideo(uid, stream) {
-  const grid = document.getElementById('video-grid');
-  if (document.getElementById(`vid-${uid}`)) return;
-
-  const item  = document.createElement('div');
-  item.className = 'vid-item';
-  item.id        = `vid-${uid}`;
-
-  const vid = document.createElement('video');
-  vid.autoplay   = true;
-  vid.playsInline = true;
-  vid.srcObject  = stream;
-
-  const lbl = document.createElement('div');
-  lbl.className   = 'vid-label';
-  lbl.textContent = otherUsers[uid]?.name ?? uid;
-
-  item.appendChild(vid);
-  item.appendChild(lbl);
-  grid.appendChild(item);
+  // デスクトップ: サイドバー
+  if (!document.getElementById(`vid-${uid}`)) {
+    const item = document.createElement('div');
+    item.className='vid-item'; item.id=`vid-${uid}`;
+    const vid=document.createElement('video');
+    vid.autoplay=true; vid.playsInline=true; vid.srcObject=stream;
+    const lbl=document.createElement('div');
+    lbl.className='vid-label'; lbl.textContent=otherUsers[uid]?.name??uid;
+    item.appendChild(vid); item.appendChild(lbl);
+    document.getElementById('video-grid').appendChild(item);
+  }
+  // モバイル: オーバーレイ
+  if (!document.getElementById(`mob-vid-${uid}`)) {
+    const item=document.createElement('div');
+    item.className='mob-vid-item'; item.id=`mob-vid-${uid}`;
+    const vid=document.createElement('video');
+    vid.autoplay=true; vid.playsInline=true; vid.srcObject=stream;
+    const lbl=document.createElement('div');
+    lbl.className='mob-vid-label'; lbl.textContent=otherUsers[uid]?.name??uid;
+    item.appendChild(vid); item.appendChild(lbl);
+    document.getElementById('mobile-videos').appendChild(item);
+  }
 }
 
 function removeRemoteVideo(uid) {
   document.getElementById(`vid-${uid}`)?.remove();
+  document.getElementById(`mob-vid-${uid}`)?.remove();
 }
 
 // ============================================================
-// プレイヤーリスト更新
+// プレイヤーリスト更新 (デスクトップ & モバイル共通)
 // ============================================================
+function buildPlayerRow(name, color, dist, isMe, inCall) {
+  const row = document.createElement('div');
+  row.className = 'pl-row';
+  row.innerHTML = `
+    <div class="pl-dot" style="background:${color}"></div>
+    <div class="pl-name">${name}</div>
+    ${dist!==null ? `<div class="pl-dist">${dist}</div>` : ''}
+    ${isMe  ? `<div class="pl-call" style="color:var(--yellow)">YOU</div>` : ''}
+    ${inCall ? `<div class="pl-call">📞</div>` : ''}`;
+  return row;
+}
+
 function updatePlayersList() {
-  const list = document.getElementById('players-list');
-  list.innerHTML = '';
-
-  const selfRow = document.createElement('div');
-  selfRow.className = 'pl-row';
-  selfRow.innerHTML = `<div class="pl-dot" style="background:${myColor}"></div>
-    <div class="pl-name">${myName}</div>
-    <div class="pl-call" style="color:var(--yellow)">YOU</div>`;
-  list.appendChild(selfRow);
-
-  for (const [uid, u] of Object.entries(otherUsers)) {
-    const d   = dist2D({ x: myX, y: myY }, u).toFixed(1);
-    const row = document.createElement('div');
-    row.className = 'pl-row';
-    row.innerHTML = `
-      <div class="pl-dot" style="background:${u.avatarColor ?? '#888'}"></div>
-      <div class="pl-name">${u.name}</div>
-      <div class="pl-dist">${d}</div>
-      ${activeCalls.has(uid) ? '<div class="pl-call">📞</div>' : ''}`;
-    list.appendChild(row);
-  }
+  ['players-list','mob-players-list'].forEach(id => {
+    const list = document.getElementById(id);
+    if (!list) return;
+    list.innerHTML = '';
+    list.appendChild(buildPlayerRow(myName, myColor, null, true, false));
+    for (const [uid,u] of Object.entries(otherUsers)) {
+      const d = dist2D({x:myX,y:myY},u).toFixed(1);
+      list.appendChild(buildPlayerRow(u.name, u.avatarColor??'#888', d, false, activeCalls.has(uid)));
+    }
+  });
 }
 
 // ============================================================
@@ -979,23 +1010,28 @@ function updatePlayersList() {
 // ============================================================
 let toastTid;
 function toast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  clearTimeout(toastTid);
-  toastTid = setTimeout(() => el.classList.remove('show'), 3000);
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastTid); toastTid=setTimeout(()=>el.classList.remove('show'),3000);
 }
 
 // ============================================================
-// カメラ初期化
+// カメラ
 // ============================================================
 async function initCamera() {
   try {
-    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    // スマホでは前面カメラを優先
+    const constraints = IS_MOBILE()
+      ? { video:{ facingMode:'user' }, audio:true }
+      : { video:true, audio:true };
+    localStream = await navigator.mediaDevices.getUserMedia(constraints);
+    // デスクトップ
     document.getElementById('self-video').srcObject = localStream;
+    // モバイル
+    document.getElementById('mob-self-video').srcObject = localStream;
     document.getElementById('st-cam').textContent = 'ON';
     toast('📷 カメラ・マイク準備完了');
-  } catch (e) {
+  } catch(e) {
     document.getElementById('st-cam').textContent = 'OFF';
     toast('⚠️ カメラなしで参加します');
   }
@@ -1006,15 +1042,11 @@ async function initCamera() {
 // ============================================================
 function buildColorPicker() {
   const row = document.getElementById('color-row');
-  AVATAR_COLORS.forEach((c, i) => {
-    const d = document.createElement('div');
-    d.className   = 'color-sw' + (i === 0 ? ' sel' : '');
-    d.style.background = c;
-    d.onclick = () => {
-      document.querySelectorAll('.color-sw').forEach(s => s.classList.remove('sel'));
-      d.classList.add('sel');
-      myColor = c;
-    };
+  AVATAR_COLORS.forEach((c,i) => {
+    const d=document.createElement('div');
+    d.className='color-sw'+(i===0?' sel':'');
+    d.style.background=c;
+    d.onclick=()=>{ document.querySelectorAll('.color-sw').forEach(s=>s.classList.remove('sel')); d.classList.add('sel'); myColor=c; };
     row.appendChild(d);
   });
 }
@@ -1022,60 +1054,41 @@ function buildColorPicker() {
 document.getElementById('enter-btn').addEventListener('click', async () => {
   const rawName = document.getElementById('name-input').value.trim();
   if (!rawName) { toast('名前を入力してください'); return; }
-
   const btn = document.getElementById('enter-btn');
-  btn.disabled = true;
-  btn.textContent = '接続中...';
-
+  btn.disabled=true; btn.textContent='接続中...';
   try {
-    // ── トークン取得（GAS から userId & token を受け取る）──
-    const res = await apiGet({ action: 'join', name: rawName });
+    const res = await apiGet({ action:'join', name:rawName });
     if (!res.ok) {
-      toast('⚠️ ' + (res.error ?? '入室失敗'));
-      btn.disabled = false;
-      btn.textContent = '▶ 入室する';
-      return;
+      toast('⚠️ '+(res.error??'入室失敗'));
+      btn.disabled=false; btn.textContent='▶ 入室する'; return;
     }
+    myId=res.userId; myToken=res.token; myName=rawName;
 
-    // サーバー発行の userId & token をメモリに保持
-    myId    = res.userId;
-    myToken = res.token;
-    myName  = rawName;
+    const floors=[];
+    for (let y=1;y<MAP_H-1;y++) for (let x=1;x<MAP_W-1;x++) if(MAP[y][x]===0) floors.push({x,y});
+    const sp=floors[Math.floor(Math.random()*floors.length)];
+    myX=sp.x; myY=sp.y;
 
-    // スポーン（床タイルのランダム位置）
-    const floors = [];
-    for (let y = 1; y < MAP_H - 1; y++)
-      for (let x = 1; x < MAP_W - 1; x++)
-        if (MAP[y][x] === 0) floors.push({ x, y });
-    const sp = floors[Math.floor(Math.random() * floors.length)];
-    myX = sp.x; myY = sp.y;
-
-    document.getElementById('modal-wrap').style.display = 'none';
-    document.getElementById('self-vid-label').textContent = myName + '（あなた）';
-    document.getElementById('st-pos').textContent = `${myX}, ${myY}`;
+    document.getElementById('modal-wrap').style.display='none';
+    document.getElementById('self-vid-label').textContent=myName+'（あなた）';
+    document.getElementById('mob-self-label').textContent=myName;
+    document.getElementById('st-pos').textContent=`${myX},${myY}`;
 
     await initCamera();
     resizeCanvas();
     await pushPos();
-
     startPolling();
     setInterval(checkProximity, 2000);
     requestAnimationFrame(drawFrame);
 
-    // 離脱時の後処理
-    window.addEventListener('beforeunload', () => {
-      apiPost({ action: 'leave' }).catch(() => {});
-    });
-
-  } catch (e) {
+    window.addEventListener('beforeunload', ()=>{ apiPost({action:'leave'}).catch(()=>{}); });
+  } catch(e) {
     toast('⚠️ サーバーへの接続に失敗しました');
     console.error(e);
-    btn.disabled = false;
-    btn.textContent = '▶ 入室する';
+    btn.disabled=false; btn.textContent='▶ 入室する';
   }
 });
 
-// 初期化
 buildColorPicker();
 </script>
 </body>
