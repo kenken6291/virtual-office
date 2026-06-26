@@ -597,6 +597,7 @@ let myName = 'ゲスト', myColor = AVATAR_COLORS[0];
 let myX = 3, myY = 3;
 let otherUsers = {}, localStream = null;
 const peers = {}, remoteStreams = {}, activeCalls = new Set();
+const pendingCalls = new Set(); // 接続処理中のUID（二重発火防止）
 
 // ============================================================
 // API ヘルパー
@@ -844,6 +845,8 @@ async function pollUsers() {
     document.getElementById('online-badge').textContent = `● ${cnt+1} online`;
     updatePlayersList();
     document.getElementById('st-api').textContent = 'OK';
+    // ユーザー一覧更新のたびに近接チェック（移動しなくても相手が近づいてきた場合に対応）
+    checkProximity();
   } catch(e) { document.getElementById('st-api').textContent='ERR'; }
 }
 
@@ -865,12 +868,31 @@ function dist2D(a,b) { return Math.sqrt((a.x-b.x)**2+(a.y-b.y)**2); }
 
 async function checkProximity() {
   if (!localStream) return;
-  for (const [uid,u] of Object.entries(otherUsers)) {
-    const d = dist2D({x:myX,y:myY}, u);
-    if (d<=CALL_RANGE&&!activeCalls.has(uid)) { if(myId<uid) await startCall(uid); }
-    else if (d>CALL_RANGE&&activeCalls.has(uid)) endCall(uid);
+
+  const startPromises = [];
+
+  for (const [uid, u] of Object.entries(otherUsers)) {
+    const d = dist2D({ x: myX, y: myY }, u);
+    const inRange = d <= CALL_RANGE;
+
+    if (inRange && !activeCalls.has(uid) && !pendingCalls.has(uid)) {
+      if (myId < uid) {
+        pendingCalls.add(uid);
+        startPromises.push(
+          startCall(uid).finally(() => pendingCalls.delete(uid))
+        );
+      }
+    } else if (!inRange && activeCalls.has(uid)) {
+      endCall(uid);
+    }
   }
-  for (const uid of [...activeCalls]) { if(!otherUsers[uid]) endCall(uid); }
+
+  await Promise.allSettled(startPromises);
+
+  for (const uid of [...activeCalls]) {
+    if (!otherUsers[uid]) endCall(uid);
+  }
+
   const hasCall = activeCalls.size > 0;
   document.getElementById('call-ring').style.display = hasCall ? 'block' : 'none';
   document.getElementById('st-call').textContent = hasCall ? `${activeCalls.size}件` : 'なし';
@@ -914,34 +936,58 @@ function buildPC(targetId) {
 }
 
 async function handleSignal({ from, type, payload }) {
-  if (type==='offer') {
-    if (peers[from]) return;
-    activeCalls.add(from);
-    const pc = buildPC(from);
-    peers[from] = pc;
-    localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
-    await pc.setRemoteDescription(new RTCSessionDescription(payload));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    await apiPost({ action:'sendSignal', to:from, type:'answer', payload:answer });
-    document.getElementById('call-ring').style.display='block';
-    toast(`📞 ${otherUsers[from]?.name??'?'} から着信`);
-  } else if (type==='answer') {
-    const pc=peers[from];
-    if (pc&&pc.signalingState!=='stable') await pc.setRemoteDescription(new RTCSessionDescription(payload));
-  } else if (type==='ice') {
-    const pc=peers[from];
-    if (pc) try { await pc.addIceCandidate(new RTCIceCandidate(payload)); } catch(e){}
+  if (type === 'offer') {
+    // すでに接続中 or 処理中はスキップ
+    if (peers[from] || pendingCalls.has(from)) return;
+    // カメラなしでも音声なしで受け入れる
+    if (!localStream) return;
+
+    pendingCalls.add(from);
+    try {
+      activeCalls.add(from);
+      const pc = buildPC(from);
+      peers[from] = pc;
+      localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+      await pc.setRemoteDescription(new RTCSessionDescription(payload));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      await apiPost({ action: 'sendSignal', to: from, type: 'answer', payload: answer });
+      const hasCall = activeCalls.size > 0;
+      document.getElementById('call-ring').style.display = hasCall ? 'block' : 'none';
+      document.getElementById('st-call').textContent = hasCall ? `${activeCalls.size}件` : 'なし';
+      toast(`📞 ${otherUsers[from]?.name ?? '?'} から着信`);
+    } catch(e) {
+      console.error('offer handling error', e);
+      endCall(from);
+    } finally {
+      pendingCalls.delete(from);
+    }
+
+  } else if (type === 'answer') {
+    const pc = peers[from];
+    if (pc && pc.signalingState !== 'stable') {
+      try { await pc.setRemoteDescription(new RTCSessionDescription(payload)); } catch(e) {}
+    }
+  } else if (type === 'ice') {
+    const pc = peers[from];
+    if (pc) try { await pc.addIceCandidate(new RTCIceCandidate(payload)); } catch(e) {}
   }
 }
 
+function updateCallStatus() {
+  const hasCall = activeCalls.size > 0;
+  document.getElementById('call-ring').style.display = hasCall ? 'block' : 'none';
+  document.getElementById('st-call').textContent    = hasCall ? `${activeCalls.size}件` : 'なし';
+}
+
 function endCall(uid) {
-  peers[uid]?.close(); delete peers[uid]; delete remoteStreams[uid];
+  peers[uid]?.close();
+  delete peers[uid];
+  delete remoteStreams[uid];
   activeCalls.delete(uid);
+  pendingCalls.delete(uid);
   removeRemoteVideo(uid);
-  const hasCall = activeCalls.size>0;
-  document.getElementById('call-ring').style.display = hasCall?'block':'none';
-  document.getElementById('st-call').textContent = hasCall?`${activeCalls.size}件`:'なし';
+  updateCallStatus();
 }
 
 // ============================================================
