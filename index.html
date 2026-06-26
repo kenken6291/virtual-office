@@ -1200,38 +1200,74 @@ async function initCamera() {
       ? { video: { facingMode: 'user' }, audio: true }
       : { video: true, audio: true };
     localStream = await navigator.mediaDevices.getUserMedia(constraints);
-    document.getElementById('self-video').srcObject = localStream;
+    document.getElementById('self-video').srcObject    = localStream;
     document.getElementById('mob-self-video').srcObject = localStream;
     document.getElementById('st-cam').textContent = 'ON';
     updateMediaButtons();
     toast('📷 カメラ・マイク準備完了');
     return;
-  } catch(e) { /* カメラ拒否 → 音声のみを試みる */ }
+  } catch(e) { console.warn('camera+mic failed:', e.name); }
 
-  // ② マイクのみ（カメラ拒否時のフォールバック）
+  // ② マイクのみ
   try {
     localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
-    // 自分映像は黒のまま（srcObjectはセットしない）
     document.getElementById('st-cam').textContent = '🎤音声のみ';
     updateMediaButtons();
-    toast('🎤 マイクのみで参加します（カメラOFF）');
+    toast('🎤 マイクのみで参加（カメラOFF）');
     return;
-  } catch(e) { /* マイクも拒否 → サイレントストリームで通話自体は成立させる */ }
+  } catch(e) { console.warn('mic-only failed:', e.name); }
 
-  // ③ すべて拒否 → 無音・無映像の空ストリームを作成
-  //    これにより通話接続自体は行われ、相手の声は聞こえる
+  // ③ 全拒否 → AudioContext で無音トラックを生成（通話接続は維持、受信は可能）
   try {
-    const ctx = new AudioContext();
-    const dst = ctx.createMediaStreamDestination();
-    localStream = dst.stream;           // 無音トラックのみ
-    document.getElementById('st-cam').textContent = 'OFF（受信のみ）';
+    const actx  = new (window.AudioContext || window.webkitAudioContext)();
+    const dest  = actx.createMediaStreamDestination();
+    // 無音オシレーターを繋いでトラックを確保
+    const osc   = actx.createOscillator();
+    const gain  = actx.createGain();
+    gain.gain.value = 0; // 完全無音
+    osc.connect(gain);
+    gain.connect(dest);
+    osc.start();
+    localStream = dest.stream;
+    document.getElementById('st-cam').textContent = '受信のみ';
     updateMediaButtons();
-    toast('⚠️ カメラ・マイクなし — 相手の声は聞こえます');
+    toast('⚠️ マイク未使用 — 相手の声は聞こえます');
+    console.log('[initCamera] silent stream created, tracks:', localStream.getTracks().length);
+    return;
+  } catch(e) { console.warn('AudioContext failed:', e); }
+
+  // ④ 完全に取得不可（非常にまれ）
+  document.getElementById('st-cam').textContent = 'ERROR';
+  toast('⚠️ メディアデバイスを利用できません');
+  console.error('[initCamera] all media acquisition methods failed');
+}
+
+// CAMボタンでカメラを後から追加する
+async function enableCamera() {
+  try {
+    const camStream = await navigator.mediaDevices.getUserMedia(
+      IS_MOBILE() ? { video: { facingMode: 'user' } } : { video: true }
+    );
+    const videoTrack = camStream.getVideoTracks()[0];
+    if (!videoTrack) return;
+
+    // localStream にビデオトラックを追加
+    localStream.addTrack(videoTrack);
+
+    // 既存のPeer接続にも追加
+    for (const pc of Object.values(peers)) {
+      try {
+        pc.addTrack(videoTrack, localStream);
+      } catch(e) {}
+    }
+
+    // 自分の映像を表示
+    document.getElementById('self-video').srcObject    = localStream;
+    document.getElementById('mob-self-video').srcObject = localStream;
+    updateMediaButtons();
+    toast('📷 カメラON');
   } catch(e) {
-    // AudioContext も使えない環境（まれ）
-    document.getElementById('st-cam').textContent = 'OFF';
-    toast('⚠️ カメラ・マイクなしで参加します');
-    // localStream = null のまま → 通話機能は無効
+    toast('📷 カメラを取得できませんでした');
   }
 }
 
@@ -1279,10 +1315,14 @@ function updateMediaButtons() {
   }
 }
 
-document.getElementById('btn-cam').addEventListener('click', () => {
-  if (!localStream) { toast('⚠️ カメラが利用できません'); return; }
+document.getElementById('btn-cam').addEventListener('click', async () => {
+  if (!localStream) { toast('⚠️ まず入室してください'); return; }
   const track = localStream.getVideoTracks()[0];
-  if (!track) { toast('⚠️ カメラトラックがありません'); return; }
+  if (!track) {
+    // カメラトラックがない → 新規取得を試みる
+    await enableCamera();
+    return;
+  }
   track.enabled = !track.enabled;
   updateMediaButtons();
   toast(track.enabled ? '📷 カメラON' : '📷 カメラOFF');
