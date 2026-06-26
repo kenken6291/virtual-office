@@ -928,15 +928,13 @@ async function checkProximity() {
     const inRange = d <= CALL_RANGE;
 
     if (inRange && !activeCalls.has(uid) && !pendingCalls.has(uid)) {
-      // 2つのIDを結合してソートし、先頭のIDを持つ方がCaller
-      // → 必ずどちらか一方だけがOfferを送る
-      const iAmCaller = [myId, uid].sort()[0] === myId;
-      if (iAmCaller) {
-        pendingCalls.add(uid);
-        startPromises.push(
-          startCall(uid).finally(() => pendingCalls.delete(uid))
-        );
-      }
+      // 両方がOfferを送ろうとするが、先にGASにシグナルが届いた側が
+      // handleSignal で peers[from] チェックにより1つだけ接続が確立する
+      // pendingCalls で自分側の二重送信は防ぐ
+      pendingCalls.add(uid);
+      startPromises.push(
+        startCall(uid).finally(() => pendingCalls.delete(uid))
+      );
     } else if (!inRange && activeCalls.has(uid)) {
       endCall(uid);
     }
@@ -1049,8 +1047,20 @@ function buildPC(targetId) {
 
 async function handleSignal({ from, type, payload }) {
   if (type === 'offer') {
-    // すでに接続中 or 処理中はスキップ
-    if (peers[from] || pendingCalls.has(from)) return;
+    // すでに接続確立済みはスキップ
+    if (peers[from]) return;
+
+    // Glare（両方がOfferを送った）の解決:
+    // IDの辞書順で大きい方がOfferを取り消してAnswerに回る
+    if (pendingCalls.has(from)) {
+      if (myId > from) {
+        // 自分のOfferを取り消して相手のOfferを受け入れる
+        pendingCalls.delete(from);
+      } else {
+        // 自分のOfferを優先、相手のOfferを無視
+        return;
+      }
+    }
     pendingCalls.add(from);
     try {
       activeCalls.add(from);
