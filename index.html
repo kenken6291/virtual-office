@@ -928,10 +928,9 @@ async function checkProximity() {
     const inRange = d <= CALL_RANGE;
 
     if (inRange && !activeCalls.has(uid) && !pendingCalls.has(uid)) {
-      // 文字コード合計でCaller/Answerer を決定
-      // スコアが大きい方がCaller（両方falseにならないよう > を使う）
-      const score = s => s.split('').reduce((a,c) => a + c.charCodeAt(0), 0);
-      const iAmCaller = score(myId) !== score(uid) ? score(myId) > score(uid) : myId > uid;
+      // 2つのIDを結合してソートし、先頭のIDを持つ方がCaller
+      // → 必ずどちらか一方だけがOfferを送る
+      const iAmCaller = [myId, uid].sort()[0] === myId;
       if (iAmCaller) {
         pendingCalls.add(uid);
         startPromises.push(
