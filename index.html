@@ -1051,16 +1051,12 @@ async function startCall(targetId) {
 }
 
 function buildPC(targetId) {
-  // TURNが設定されている場合は relay を優先（host/srflx の ICE 701 エラー回避）
-  const hasTurn = ICE_CFG.iceServers.some(s => {
-    const url = typeof s.urls === 'string' ? s.urls : s.urls[0];
-    return url.startsWith('turn') || url.startsWith('turns');
-  });
-  const cfg = hasTurn
-    ? { ...ICE_CFG, iceTransportPolicy: 'relay' }
-    : ICE_CFG;
-  const pc = new RTCPeerConnection(cfg);
-  console.log('[buildPC]', targetId, 'iceTransportPolicy:', cfg.iceTransportPolicy ?? 'all', 'TURN:', hasTurn);
+  // iceTransportPolicy は 'all'（デフォルト）を使用
+  // - 同一LAN: host candidate で直接接続
+  // - 異なるネットワーク: TURN relay で接続
+  // relay 強制にすると同一LAN接続が失敗する
+  const pc = new RTCPeerConnection(ICE_CFG);
+  console.log('[buildPC]', targetId, 'iceServers:', ICE_CFG.iceServers.length);
 
   // ICE candidate
   pc.onicecandidate = ({ candidate }) => {
