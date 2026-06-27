@@ -510,6 +510,7 @@ body {
   <button class="media-btn" id="btn-cam"  title="カメラ ON/OFF">📷 CAM</button>
   <button class="media-btn" id="btn-mic"  title="マイク ON/OFF">🎤 MIC</button>
   <div id="online-badge">● 0 online</div>
+  <button class="media-btn danger" id="btn-leave" title="退室する" style="margin-left:4px;">🚪 退室</button>
 </div>
 
 <!-- ───── メイン ───── -->
@@ -985,13 +986,7 @@ async function fetchIceServers() {
     const METERED_DOMAIN  = 'virtual-office-kenken6291.metered.live';
     const r = await fetch(`https://${METERED_DOMAIN}/api/v1/turn/credentials?apiKey=${METERED_API_KEY}`);
     if (r.ok) {
-      const allTurns = await r.json();
-      // TCP 443のみ優先（ファイアウォール対策: UDPブロック環境向け）
-      const tcp443 = allTurns.filter(s => {
-        const url = typeof s.urls === 'string' ? s.urls : s.urls[0];
-        return url.includes('443') && url.includes('tcp');
-      });
-      const turnServers = tcp443.length > 0 ? tcp443 : allTurns;
+      const turnServers = await r.json();
       ICE_CFG = {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
@@ -1000,7 +995,7 @@ async function fetchIceServers() {
         ],
         iceCandidatePoolSize: 10,
       };
-      console.log('[ICE] servers loaded:', ICE_CFG.iceServers.length, 'entries (TCP-443 priority)');
+      console.log('[ICE] servers loaded:', ICE_CFG.iceServers.length, 'entries (with TURN)');
       return;
     }
   } catch(e) {
@@ -1481,6 +1476,35 @@ document.getElementById('btn-mic').addEventListener('click', () => {
   track.enabled = !track.enabled;
   updateMediaButtons();
   toast(track.enabled ? '🎤 マイクON' : '🎤 マイクOFF（ミュート）');
+});
+
+document.getElementById('btn-leave').addEventListener('click', () => {
+  if (!myId) { toast('⚠️ 入室していません'); return; }
+  if (!confirm('退室しますか？')) return;
+  // 全通話を終了
+  Object.keys(peers).forEach(uid => endCall(uid));
+  // ローカルストリームを停止
+  if (localStream) {
+    localStream.getTracks().forEach(t => t.stop());
+    localStream = null;
+  }
+  // サーバーに退室を通知
+  apiPost({ action: 'leave' }).catch(() => {});
+  stopPolling();
+  // 状態リセット
+  myToken = null;
+  myId    = null;
+  otherUsers = {};
+  // UIリセット
+  document.getElementById('modal-wrap').style.display = 'flex';
+  document.getElementById('online-badge').textContent = '● 0 online';
+  document.getElementById('st-call').textContent = 'なし';
+  document.getElementById('call-ring').style.display = 'none';
+  document.getElementById('video-grid').innerHTML = '';
+  document.getElementById('players-list').innerHTML = '';
+  document.getElementById('self-video').srcObject = null;
+  document.getElementById('mob-self-video').srcObject = null;
+  toast('退室しました');
 });
 
 // ============================================================
