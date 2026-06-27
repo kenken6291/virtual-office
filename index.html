@@ -1522,9 +1522,11 @@ function doLeave() {
   document.getElementById('mob-drawer').classList.remove('open');
   toast('退室しました');
 }
-document.getElementById('btn-leave').addEventListener('click', doLeave);
-document.getElementById('btn-leave-mob').addEventListener('click', doLeave);
-document.getElementById('btn-leave-mob-fixed').addEventListener('click', doLeave);
+// 退室ボタン（存在する要素のみにイベント登録）
+['btn-leave', 'btn-leave-mob', 'btn-leave-mob-fixed'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('click', doLeave);
+});
 
 // ============================================================
 // ログインUI
