@@ -985,7 +985,13 @@ async function fetchIceServers() {
     const METERED_DOMAIN  = 'virtual-office-kenken6291.metered.live';
     const r = await fetch(`https://${METERED_DOMAIN}/api/v1/turn/credentials?apiKey=${METERED_API_KEY}`);
     if (r.ok) {
-      const turnServers = await r.json();
+      const allTurns = await r.json();
+      // TCP 443のみ優先（ファイアウォール対策: UDPブロック環境向け）
+      const tcp443 = allTurns.filter(s => {
+        const url = typeof s.urls === 'string' ? s.urls : s.urls[0];
+        return url.includes('443') && url.includes('tcp');
+      });
+      const turnServers = tcp443.length > 0 ? tcp443 : allTurns;
       ICE_CFG = {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
@@ -994,7 +1000,7 @@ async function fetchIceServers() {
         ],
         iceCandidatePoolSize: 10,
       };
-      console.log('[ICE] servers loaded:', ICE_CFG.iceServers.length, 'entries (with TURN)');
+      console.log('[ICE] servers loaded:', ICE_CFG.iceServers.length, 'entries (TCP-443 priority)');
       return;
     }
   } catch(e) {
