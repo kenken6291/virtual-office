@@ -1478,24 +1478,14 @@ document.getElementById('btn-mic').addEventListener('click', () => {
   toast(track.enabled ? '🎤 マイクON' : '🎤 マイクOFF（ミュート）');
 });
 
-document.getElementById('btn-leave').addEventListener('click', () => {
+function doLeave() {
   if (!myId) { toast('⚠️ 入室していません'); return; }
   if (!confirm('退室しますか？')) return;
-  // 全通話を終了
   Object.keys(peers).forEach(uid => endCall(uid));
-  // ローカルストリームを停止
-  if (localStream) {
-    localStream.getTracks().forEach(t => t.stop());
-    localStream = null;
-  }
-  // サーバーに退室を通知
+  if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
   apiPost({ action: 'leave' }).catch(() => {});
   stopPolling();
-  // 状態リセット
-  myToken = null;
-  myId    = null;
-  otherUsers = {};
-  // UIリセット
+  myToken = null; myId = null; otherUsers = {};
   document.getElementById('modal-wrap').style.display = 'flex';
   document.getElementById('online-badge').textContent = '● 0 online';
   document.getElementById('st-call').textContent = 'なし';
@@ -1504,8 +1494,11 @@ document.getElementById('btn-leave').addEventListener('click', () => {
   document.getElementById('players-list').innerHTML = '';
   document.getElementById('self-video').srcObject = null;
   document.getElementById('mob-self-video').srcObject = null;
+  document.getElementById('mob-drawer').classList.remove('open');
   toast('退室しました');
-});
+}
+document.getElementById('btn-leave').addEventListener('click', doLeave);
+document.getElementById('btn-leave-mob').addEventListener('click', doLeave);
 
 // ============================================================
 // ログインUI
